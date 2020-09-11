@@ -1,9 +1,13 @@
 from graphviz import Digraph
+import re
 
 
 class State:
     def __init__(self, name):
         self.name = name
+        groups = re.search("([a-zA-Z]+)([0-9]+)", self.name).groups()
+        self.prefix = groups[0]
+        self.number = groups[1]
 
     def __hash__(self):
         return hash(self.name)
@@ -18,10 +22,17 @@ class State:
         return self.__str__()
 
 
+class Error(State):
+    def __init__(self):
+        super().__init__(name="__fsm_error_state_" + str(hex(id(self))))
+
+
 class Transition:
+    EPSILON = "$"
+
     def __init__(self):
         self.states = set()
-        self.alphabet = set()
+        self.alphabet = {Transition.EPSILON}
         self.delta = {}
 
     def add(self, ei, ef, symbols):
@@ -43,6 +54,25 @@ class Transition:
                 self.delta[state_ei][s] = set()
 
             self.delta[state_ei][s].add(state_ef)
+
+    def __call__(self, state, string):
+        assert state in self.states
+        state_e = state
+        if isinstance(state_e, str):
+            state_e = State(state_e)
+
+        next_states = set()
+        if len(string):
+            symbol = string[0]
+            assert symbol in self.alphabet
+
+            if symbol in self.delta[state_e]:
+                next_states.update({(e, string[1:]) for e in self.delta[state_e][symbol]})
+
+        if Transition.EPSILON in self.delta[state_e]:
+            next_states.update({(e, string[:]) for e in self.delta[state_e][Transition.EPSILON]})
+
+        return next_states
 
     def __str__(self):
         string = "states = " + str(self.states) + " ; alphabet = " + str(self.alphabet) + "\n"
@@ -73,6 +103,19 @@ class FiniteAutomata:
 
     def __repr__(self):
         return self.__str__()
+
+    def _read(self, string, state):
+        if not len(string) and state in self.final:
+            return True
+        else:
+            for e, rmn in self.transition(state, string):
+                if self._read(rmn, e):
+                    return True
+
+        return False
+
+    def read(self, string):
+        return self._read(string, self.initial)
 
     def build_dot(self):
         dot = Digraph()
