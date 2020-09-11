@@ -7,7 +7,7 @@ class State:
         self.name = name
         groups = re.search("([a-zA-Z]+)([0-9]+)", self.name).groups()
         self.prefix = groups[0]
-        self.number = groups[1]
+        self.number = int(groups[1])
 
     def __hash__(self):
         return hash(self.name)
@@ -39,8 +39,7 @@ class Transition:
         assertion = [isinstance(s, str) for s in symbols]
         assert sum(assertion) == len(assertion)
 
-        state_ei = State(ei)
-        state_ef = State(ef)
+        state_ei, state_ef = State(ei), State(ef)
 
         self.states.add(state_ei)
         self.states.add(state_ef)
@@ -84,12 +83,29 @@ class Transition:
     def __repr__(self):
         return self.__str__()
 
+    def max_state(self):
+        return max(self.states, key=lambda e: e.number)
+
+    def rebase(self, base):
+        transition = Transition()
+
+        for ei in self.delta:
+            new_ei = ei.prefix + str(ei.number + base)
+            for symbol in self.delta[ei]:
+                for ef in self.delta[ei][symbol]:
+                    new_ef = ef.prefix + str(ef.number + base)
+                    transition.add(new_ei, new_ef, symbol)
+
+        return transition
+
 
 class FiniteAutomata:
     def __init__(self, transition, initial, final):
         self.transition = transition
-        self.initial = State(initial)
-        self.final = {State(e) for e in final}
+        self.initial = initial
+        if isinstance(self.initial, str):
+            self.initial = State(self.initial)
+        self.final = {State(e) if isinstance(e, str) else e for e in final}
 
         assert isinstance(self.transition.states, set)
         assert isinstance(self.transition.alphabet, set)
@@ -116,6 +132,11 @@ class FiniteAutomata:
 
     def read(self, string):
         return self._read(string, self.initial)
+
+    def rebase(self, base):
+        initial = self.initial.prefix + str(self.initial.number + base)
+        final = {e.prefix + str(e.number + base) for e in self.final}
+        return FiniteAutomata(self.transition.rebase(base), initial, final)
 
     def build_dot(self):
         dot = Digraph()
