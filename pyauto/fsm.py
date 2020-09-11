@@ -162,3 +162,21 @@ class FiniteAutomata:
                     dot.edge(str(ei), str(ef), label=str(symbol))
 
         return dot
+
+
+class Z(FiniteAutomata):
+    def __init__(self, expression):
+        transition = Transition()
+
+        state = 0
+        for i, z in enumerate(expression):
+            transition.add("z" + str(state), "z" + str(state + 1), z)
+            state += 1
+            if i < len(expression) - 1:
+                transition.add("z" + str(state), "z" + str(state + 1), "$")
+                state += 1
+
+        initial = "z0"
+        final = {"z" + str(state)}
+
+        super().__init__(transition, initial, final)

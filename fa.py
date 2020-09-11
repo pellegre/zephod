@@ -62,6 +62,17 @@ def test_case_2(inp, plot=False):
     return nfsm_value
 
 
+def test_case_3(inp, plot=False):
+    expr = Z("10")
+
+    expr_value = expr.read(inp)
+    print("expr_value = ", expr_value)
+
+    if plot:
+        dot = expr.build_dot()
+        dot.view(filename=get_tmp_filename())
+
+
 def run_cases():
     assert test_case_1("00111011110")
     assert test_case_1("00")
@@ -83,4 +94,5 @@ def run_cases():
 
 if __name__ == '__main__':
     print("[+] FD ")
-    run_cases()
+    # run_cases()
+    test_case_3("10")
