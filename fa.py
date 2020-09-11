@@ -4,7 +4,7 @@ import string
 
 
 def get_tmp_filename():
-    return "/tmp/" + "".join(random.choice(string.ascii_letters) for _ in range(12)) + ".pdf"
+    return "/tmp/" + "".join(random.choice(string.ascii_letters) for _ in range(12))
 
 
 def test_case_1(inp, plot=False):
@@ -63,14 +63,15 @@ def test_case_2(inp, plot=False):
 
 
 def test_case_3(inp, plot=False):
-    expr = Z("10")
+    expr = (Z("1") | Z("10")) & ~Z("01")
 
     expr_value = expr.read(inp)
-    print("expr_value = ", expr_value)
 
     if plot:
         dot = expr.build_dot()
         dot.view(filename=get_tmp_filename())
+
+    return expr_value
 
 
 def run_cases():
@@ -91,8 +92,14 @@ def run_cases():
     assert test_case_2("b")
     assert test_case_2("a")
 
+    assert test_case_3("10010101")
+    assert not test_case_3("1110010101")
+    assert test_case_3("10010101")
+    assert test_case_3("1")
+    assert test_case_3("10010101")
+    assert not test_case_3("010101")
+
 
 if __name__ == '__main__':
     print("[+] FD ")
-    # run_cases()
-    test_case_3("10")
+    run_cases()
