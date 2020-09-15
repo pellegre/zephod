@@ -39,20 +39,20 @@ class Transition:
         assertion = [isinstance(s, str) for s in symbols]
         assert sum(assertion) == len(assertion)
 
-        state_ei, state_ef = State(ei), State(ef)
+        initial_state, final_state = State(ei), State(ef)
 
-        self.states.add(state_ei)
-        self.states.add(state_ef)
+        self.states.add(initial_state)
+        self.states.add(final_state)
         self.alphabet.update(symbols)
 
-        if state_ei not in self.delta:
-            self.delta[state_ei] = {}
+        if initial_state not in self.delta:
+            self.delta[initial_state] = {}
 
         for s in symbols:
-            if s not in self.delta[state_ei]:
-                self.delta[state_ei][s] = set()
+            if s not in self.delta[initial_state]:
+                self.delta[initial_state][s] = set()
 
-            self.delta[state_ei][s].add(state_ef)
+            self.delta[initial_state][s].add(final_state)
 
     def join(self, other):
         for ei in other.delta:
@@ -127,7 +127,7 @@ class FiniteAutomata:
     def __repr__(self):
         return self.__str__()
 
-    def __or__(self, p):
+    def __add__(self, p):
         this = self.rebase(1)
         other = p.rebase(this.transition.max_state().number + 1)
 
@@ -162,7 +162,7 @@ class FiniteAutomata:
 
         return FiniteAutomata(transition, self.initial, {final})
 
-    def __and__(self, p):
+    def __or__(self, p):
         other = p.rebase(self.transition.max_state().number + 1)
 
         transition = Transition()
@@ -174,18 +174,18 @@ class FiniteAutomata:
 
         return FiniteAutomata(transition, self.initial, other.final)
 
-    def _read(self, string, state):
+    def parse(self, string, state):
         if not len(string) and state in self.final:
             return True
         else:
-            for e, rmn in self.transition(state, string):
-                if self._read(rmn, e):
+            for e, rest in self.transition(state, string):
+                if self.parse(rest, e):
                     return True
 
         return False
 
     def read(self, string):
-        return self._read(string, self.initial)
+        return self.parse(string, self.initial)
 
     def rebase(self, base):
         initial = self.initial.prefix + str(self.initial.number + base)
@@ -194,7 +194,7 @@ class FiniteAutomata:
 
     def build_dot(self):
         dot = Digraph()
-        dot.attr(rankdir='LR', size='8,5')
+        dot.attr(rankdir='TB',  size='8,5')
         dot.node("hidden", style="invisible")
 
         if self.initial in self.final:

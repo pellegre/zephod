@@ -1,6 +1,10 @@
 from pyauto.fsm import *
+from utils.builder import *
+
 import random
 import string
+
+import pandas
 
 
 def get_tmp_filename():
@@ -63,9 +67,35 @@ def test_case_2(inp, plot=False):
 
 
 def test_case_3(inp, plot=False):
-    expr = (Z("1") | Z("10")) & ~Z("01")
+    expr = (Z("1") + Z("10")) | ~Z("01")
 
     expr_value = expr.read(inp)
+
+    if plot:
+        dot = expr.build_dot()
+        dot.view(filename=get_tmp_filename())
+
+    return expr_value
+
+
+def test_case_4(inp, plot=False):
+    expr = Z("00") + (~Z("0") | Z("1"))
+
+    expr_value = expr.read(inp)
+
+    if plot:
+        dot = expr.build_dot()
+        dot.view(filename=get_tmp_filename())
+
+    return expr_value
+
+
+def test_case_5(inp, plot=False):
+    expr = FiniteAutomataBuilder.get_finite_automata_from_csv("./csv/zuto.csv")
+
+    expr_value = expr.read(inp)
+    print(expr)
+    print("expr =", expr_value)
 
     if plot:
         dot = expr.build_dot()
@@ -99,7 +129,14 @@ def run_cases():
     assert test_case_3("10010101")
     assert not test_case_3("010101")
 
+    assert test_case_4("1")
+    assert test_case_4("00")
+    assert test_case_4("00001")
+    assert test_case_4("0000001")
+    assert not test_case_4("1111")
+
 
 if __name__ == '__main__':
     print("[+] FD ")
-    run_cases()
+    # run_cases()
+    test_case_5("badddcbdb", True)
