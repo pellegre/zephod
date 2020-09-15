@@ -37,7 +37,8 @@ class FiniteAutomataBuilder:
                     if state in all_states:
                         transition.add(from_state, state, {symbol})
                     else:
-                        print("warning :", state, "not defined state")
+                        if state != "err":
+                            print("warning :", state, "not defined state")
 
         dfsm = FiniteAutomata(transition, initial_state, final_states)
         return dfsm

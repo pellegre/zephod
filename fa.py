@@ -4,8 +4,6 @@ from utils.builder import *
 import random
 import string
 
-import pandas
-
 
 def get_tmp_filename():
     return "/tmp/" + "".join(random.choice(string.ascii_letters) for _ in range(12))
@@ -94,8 +92,6 @@ def test_case_5(inp, plot=False):
     expr = FiniteAutomataBuilder.get_finite_automata_from_csv("./csv/zuto.csv")
 
     expr_value = expr.read(inp)
-    print(expr)
-    print("expr =", expr_value)
 
     if plot:
         dot = expr.build_dot()
@@ -135,8 +131,22 @@ def run_cases():
     assert test_case_4("0000001")
     assert not test_case_4("1111")
 
+    assert test_case_5("badddcbdb")
+    assert test_case_5("ddb")
+    assert test_case_5("ddddb")
+    assert test_case_5("b")
+    assert test_case_5("bdd")
+    assert test_case_5("bbddb")
+    assert test_case_5("bdbdb")
+    assert not test_case_5("")
+    assert not test_case_5("dd")
+    assert not test_case_5("dddb")
+    assert not test_case_5("ddbaddc")
+    assert not test_case_5("baddc")
+    assert not test_case_5("baddcdd")
+    assert test_case_5("bddcdd")
+
 
 if __name__ == '__main__':
     print("[+] FD ")
-    # run_cases()
-    test_case_5("badddcbdb", True)
+    run_cases()

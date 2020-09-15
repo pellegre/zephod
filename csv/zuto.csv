@@ -1,5 +1,5 @@
 states,a,b,c,d,type
-z0,z7,z15,z13,z14,initial/final
+z0,z7,z15,z13,z14,initial
 z1,z1,z16,z14,z2,none
 z2,z7,z15,z13,z3,none
 z3,z1,z16,err,z13,none
