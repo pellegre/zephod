@@ -1,5 +1,26 @@
 from pyauto.fsm import *
+
 import pandas
+import random
+import string
+import subprocess
+import dot2tex
+
+
+class AutomataPlotter:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def get_tmp_filename():
+        return "/tmp/" + "".join(random.choice(string.ascii_letters) for _ in range(12))
+
+    @staticmethod
+    def plot(z):
+        dot = z.build_dot()
+        filename = AutomataPlotter.get_tmp_filename() + ".pdf"
+        dot.draw(path=filename)
+        subprocess.Popen(["xdg-open " + filename], shell=True)
 
 
 class FiniteAutomataBuilder:
@@ -19,16 +40,16 @@ class FiniteAutomataBuilder:
 
             for each_type in state_type.split("/"):
                 # check for initial and final states
-                if each_type == "initial":
+                if each_type == FiniteAutomata.NodeType.INITIAL:
                     if initial_state is not None:
                         raise RuntimeError("more than one initial state", initial_state, from_state)
                     else:
                         initial_state = from_state
 
-                elif each_type == "final":
+                elif each_type == FiniteAutomata.NodeType.FINAL:
                     final_states.add(from_state)
 
-                elif each_type != "none":
+                elif each_type != FiniteAutomata.NodeType.NONE:
                     raise RuntimeError("invalid state type", each_type)
 
             for symbol in frame.iloc[row].index:

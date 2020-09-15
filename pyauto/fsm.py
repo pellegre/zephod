@@ -1,4 +1,8 @@
 from graphviz import Digraph
+from enum import Enum
+from networkx.drawing.nx_agraph import to_agraph
+
+import networkx
 import re
 
 
@@ -107,6 +111,11 @@ class Transition:
 
 
 class FiniteAutomata:
+    class NodeType:
+        INITIAL = "initial"
+        FINAL = "final"
+        NONE = "none"
+
     def __init__(self, transition, initial, final):
         self.transition = transition
         self.initial = initial
@@ -118,6 +127,8 @@ class FiniteAutomata:
         assert isinstance(self.transition.alphabet, set)
         assert isinstance(self.final, set) and self.final.issubset(self.transition.states)
         assert not isinstance(self.initial, set) and self.initial in self.transition.states
+
+        self.g = self.build_graph()
 
     def __str__(self):
         string = str(self.transition)
@@ -192,7 +203,75 @@ class FiniteAutomata:
         final = {e.prefix + str(e.number + base) for e in self.final}
         return FiniteAutomata(self.transition.rebase(base), initial, final)
 
+    def build_graph(self):
+        g = networkx.DiGraph()
+        g.add_node(self.initial, type=FiniteAutomata.NodeType.INITIAL)
+
+        for each in self.transition.states:
+            if each in self.final:
+                g.add_node(each, type=FiniteAutomata.NodeType.FINAL)
+            else:
+                g.add_node(each, type=FiniteAutomata.NodeType.NONE)
+
+        for ei in self.transition.delta:
+            for symbol in self.transition.delta[ei]:
+                for ef in self.transition.delta[ei][symbol]:
+                    g.add_edge(ei, ef, symbol=symbol)
+
+        return g
+
+    @staticmethod
+    def get_colors():
+        return ["lightskyblue4", "green4", "indianred4", "lavenderblush4", "olivedrab4"
+                  "purple4", "steelblue4", "hotpink4",
+                  "orangered4", "turquoise4"]
+
     def build_dot(self):
+        colors = self.get_colors()
+
+        a = to_agraph(self.g)
+        a.graph_attr["rankdir"] = "LR"
+        a.graph_attr["size"] = 8.5
+        a.node_attr["fontsize"] = 7
+        a.edge_attr["fontsize"] = 8
+        a.edge_attr["penwidth"] = 0.4
+        a.edge_attr["arrowsize"] = 0.5
+
+        symbol_colors = {}
+        for each in self.transition.delta:
+            for symbol in sorted(set(self.transition.delta[each])):
+                if symbol not in symbol_colors:
+                    symbol_colors[symbol] = colors.pop(0)
+
+                    if not len(colors):
+                        colors = self.get_colors()
+
+                a.add_node(symbol, color=symbol_colors[symbol])
+
+        initial = a.get_node(str(self.initial))
+        initial.attr["root"] = "true"
+        if self.initial in self.final:
+            initial.attr["shape"] = "doublecircle"
+
+        for state in filter(lambda n: n in self.final, self.transition.states):
+            node = a.get_node(str(state))
+            node.attr["shape"] = "doublecircle"
+
+        a.add_node("hidden", style="invisible")
+        a.add_edge("hidden", str(self.initial))
+
+        a.layout("dot")
+
+        for ei in self.transition.delta:
+            for symbol in self.transition.delta[ei]:
+                for ef in self.transition.delta[ei][symbol]:
+                    edge = a.get_edge(str(ei), str(ef))
+                    edge.attr["xlabel"] = str(symbol)
+                    edge.attr["fontcolor"] = symbol_colors[symbol]
+                    edge.attr["color"] = symbol_colors[symbol]
+
+        return a
+
         dot = Digraph()
         dot.attr(rankdir='TB',  size='8,5')
         dot.node("hidden", style="invisible")

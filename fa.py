@@ -4,9 +4,8 @@ from utils.builder import *
 import random
 import string
 
-
-def get_tmp_filename():
-    return "/tmp/" + "".join(random.choice(string.ascii_letters) for _ in range(12))
+import matplotlib.pyplot as plt
+import subprocess
 
 
 def test_case_1(inp, plot=False):
@@ -40,8 +39,7 @@ def test_case_1(inp, plot=False):
     rebased_nfsm_value = rebased_nfsm.read(inp)
 
     if plot:
-        dot = rebased_nfsm.build_dot()
-        dot.view(filename=get_tmp_filename())
+        AutomataPlotter.plot(dfsm)
 
     return dfsm_value and nfsm_value and rebased_nfsm_value
 
@@ -58,8 +56,7 @@ def test_case_2(inp, plot=False):
     nfsm_value = nfsm.read(inp)
 
     if plot:
-        dot = nfsm.build_dot()
-        dot.view(filename=get_tmp_filename())
+        AutomataPlotter.plot(nfsm)
 
     return nfsm_value
 
@@ -70,8 +67,7 @@ def test_case_3(inp, plot=False):
     expr_value = expr.read(inp)
 
     if plot:
-        dot = expr.build_dot()
-        dot.view(filename=get_tmp_filename())
+        AutomataPlotter.plot(expr)
 
     return expr_value
 
@@ -82,8 +78,7 @@ def test_case_4(inp, plot=False):
     expr_value = expr.read(inp)
 
     if plot:
-        dot = expr.build_dot()
-        dot.view(filename=get_tmp_filename())
+        AutomataPlotter.plot(expr)
 
     return expr_value
 
@@ -94,8 +89,7 @@ def test_case_5(inp, plot=False):
     expr_value = expr.read(inp)
 
     if plot:
-        dot = expr.build_dot()
-        dot.view(filename=get_tmp_filename())
+        AutomataPlotter.plot(expr)
 
     return expr_value
 
@@ -149,4 +143,5 @@ def run_cases():
 
 if __name__ == '__main__':
     print("[+] FD ")
-    run_cases()
+    # run_cases()
+    test_case_5("ddb", True)
