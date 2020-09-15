@@ -85,8 +85,55 @@ def test_case_4(inp, plot=False):
 
 def test_case_5(inp, plot=False):
     expr = FiniteAutomataBuilder.get_finite_automata_from_csv("./csv/zuto.csv")
+    expr_value = expr.read(inp)
+
+    if plot:
+        AutomataPlotter.plot(expr)
+
+    return expr_value
+
+
+def test_case_6(inp, plot=False):
+    unit = Unit(alphabet={"a", "b", "c", "d"},
+                constraints=[Odd(pattern="b"), Even(pattern="d"), NotContained("addc")])
+
+    expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
 
     expr_value = expr.read(inp)
+
+    if plot:
+        AutomataPlotter.plot(expr)
+
+    return expr_value
+
+
+def test_case_7(inp, plot=False):
+    unit = Unit(alphabet={"a", "b", "c", "d"},
+                constraints=[Odd(pattern="b"), NotContained("adc")])
+
+    # print(unit.get_frame(total=True))
+    expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
+
+    expr_value = expr.read(inp)
+    if plot:
+        AutomataPlotter.plot(expr)
+
+    return expr_value
+
+
+def test_case_8(inp, plot=False):
+    unit_1 = Unit(alphabet={"a", "b"},
+                  constraints=[Even(pattern="b")])
+    expr_1 = FiniteAutomataBuilder.get_finite_automata_from_unit(unit_1)
+
+    unit_2 = Unit(alphabet={"a", "c"},
+                  constraints=[Odd(pattern="c"), NotContained("aac")])
+    expr_2 = FiniteAutomataBuilder.get_finite_automata_from_unit(unit_2)
+
+    expr = expr_1 | expr_2
+    expr_value = expr.read(inp)
+
+    print(expr_value)
 
     if plot:
         AutomataPlotter.plot(expr)
@@ -140,8 +187,33 @@ def run_cases():
     assert not test_case_5("baddcdd")
     assert test_case_5("bddcdd")
 
+    assert test_case_6("badddcbdb")
+    assert test_case_6("ddb")
+    assert test_case_6("ddddb")
+    assert test_case_6("b")
+    assert test_case_6("bdd")
+    assert test_case_6("bbddb")
+    assert test_case_6("bdbdb")
+    assert not test_case_6("")
+    assert not test_case_6("dd")
+    assert not test_case_6("dddb")
+    assert not test_case_6("ddbaddc")
+    assert not test_case_6("baddc")
+    assert not test_case_6("baddcdd")
+    assert test_case_6("bddcdd")
+
+    assert test_case_7("abbbad")
+    assert test_case_7("b")
+    assert test_case_7("abbb")
+    assert test_case_7("abbbbbcdcd")
+    assert test_case_7("baddd")
+    assert not test_case_7("badc")
+    assert not test_case_7("")
+    assert not test_case_7("bbbadc")
+    assert not test_case_7("bbbbbadc")
+
 
 if __name__ == '__main__':
     print("[+] FD ")
     # run_cases()
-    test_case_5("ddb", True)
+    test_case_8("abaaabcaac", True)

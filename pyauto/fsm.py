@@ -272,30 +272,6 @@ class FiniteAutomata:
 
         return a
 
-        dot = Digraph()
-        dot.attr(rankdir='TB',  size='8,5')
-        dot.node("hidden", style="invisible")
-
-        if self.initial in self.final:
-            dot.node(str(self.initial), root="true", shape="doublecircle")
-        else:
-            dot.node(str(self.initial), root="true")
-
-        dot.edge("hidden", str(self.initial))
-
-        for state in self.transition.states:
-            if state in self.final:
-                dot.node(str(state), shape="doublecircle")
-            else:
-                dot.node(str(state))
-
-        for ei in self.transition.delta:
-            for symbol in self.transition.delta[ei]:
-                for ef in self.transition.delta[ei][symbol]:
-                    dot.edge(str(ei), str(ef), label=str(symbol))
-
-        return dot
-
 
 class Z(FiniteAutomata):
     def __init__(self, expression):
