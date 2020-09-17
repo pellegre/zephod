@@ -4,6 +4,8 @@ from networkx.drawing.nx_agraph import to_agraph
 
 import networkx
 import re
+import math
+import copy
 
 
 class State:
@@ -144,6 +146,8 @@ class FiniteAutomata:
         if self.is_non_deterministic() and not self.has_null_transitions():
             self._build_power_state_set({self.initial})
 
+        self.minimization_steps = {}
+
     def __str__(self):
         string = str(self.transition)
         string += "\ninitial = " + str(self.initial) + " ; final = " + str(self.final)
@@ -226,20 +230,120 @@ class FiniteAutomata:
     def _build_power_state_set(self, state_set):
         assert not self.has_null_transitions()
         tuple_state = tuple(sorted(state_set))
-
-        self.state_power_set[tuple_state] = {s: set() for s in self.transition.alphabet if s != Transition.EPSILON}
+        self.state_power_set[tuple_state] = {}
 
         for state in state_set:
             for edge in self.g.out_edges(state):
                 for symbol in self._get_symbol_from_edge(self.g, edge):
-                    self.state_power_set[tuple_state][symbol].add(edge[1])
+                    if symbol not in self.state_power_set[tuple_state]:
+                        self.state_power_set[tuple_state][symbol] = {edge[1]}
+                    else:
+                        self.state_power_set[tuple_state][symbol].add(edge[1])
 
         for s in self.state_power_set[tuple_state]:
             added_sets = tuple(sorted(self.state_power_set[tuple_state][s]))
             if len(added_sets) and added_sets not in self.state_power_set:
                 self._build_power_state_set(self.state_power_set[tuple_state][s])
 
+    def _partition_by_symbol(self, pi, pi_current, symbol, delta):
+        groups = {}
+
+        for state in pi:
+            if state in self.transition.delta and symbol in self.transition.delta[state]:
+                e = self.transition.delta[state][symbol]
+                assert len(e) == 1
+                index = list(map(lambda g: e.issubset(g), pi_current)).index(True)
+            else:
+                index = math.inf
+
+            if index not in groups:
+                groups[index] = {state}
+            else:
+                groups[index].add(state)
+
+            if symbol not in delta:
+                delta[symbol] = {state: index}
+            else:
+                delta[symbol][state] = index
+
+        return list(groups.values())
+
+    def minimize_automata(self):
+        assert not self.has_null_transitions()
+
+        g = self.g.copy()
+        for state in filter(lambda s: s not in self.final, list(g.nodes)):
+            reach_final = False
+            for final in self.final:
+                try:
+                    networkx.dijkstra_path(g, state, final)
+                    reach_final = True
+                except networkx.exception.NetworkXNoPath:
+                    continue
+
+            if not reach_final:
+                g.remove_node(state)
+
+        pi_next, pi_current, pi_global = [{e for e in g.nodes if e not in self.final}, self.final], [], []
+
+        step_number = 0
+        while not(set(sorted([tuple(sorted(p)) for p in pi_global])) ==
+                  set(sorted([tuple(sorted(p)) for p in pi_next]))):
+
+            pi_global = copy.deepcopy(pi_next)
+            self.minimization_steps[step_number] = {"pi": pi_next, "delta": {}}
+
+            for symbol in filter(lambda s: s != Transition.EPSILON, self.transition.alphabet):
+                pi_current, pi_next = pi_next, []
+
+                for pi in pi_current:
+                    pi_next += self._partition_by_symbol(pi, pi_current, symbol,
+                                                         self.minimization_steps[step_number]["delta"])
+
+            step_number += 1
+
+        last_step = max(self.minimization_steps.keys())
+        pi_final = self.minimization_steps[last_step]["pi"]
+
+        states_map, final, initial = {}, [], None
+        prefix = chr((ord(self.initial.prefix[0]) - ord('a') - 1) % (ord('z') - ord('a') + 1) + ord('a'))
+
+        delta = {}
+        for i, state in enumerate(pi_final):
+            tuple_state = tuple(sorted(state))
+            states_map[tuple_state] = prefix + str(i)
+            assert state.issubset(self.final) or not len(state.intersection(self.final))
+
+            if state.issubset(self.final):
+                final.append(states_map[tuple_state])
+
+            if self.initial in state:
+                initial = states_map[tuple_state]
+
+            symbols = self.minimization_steps[last_step]["delta"]
+            delta[tuple_state] = {s: [] for s in symbols}
+            for symbol in symbols:
+                for e in filter(lambda t: t in state, self.minimization_steps[last_step]["delta"][symbol]):
+                    delta[tuple_state][symbol].append(self.minimization_steps[last_step]["delta"][symbol][e])
+
+        assert initial
+
+        transition = Transition()
+        for state in delta:
+            for symbol in delta[state]:
+                group = set(delta[state][symbol])
+                assert len(group) == 1
+
+                g = group.pop()
+                if g is not math.inf:
+                    tuple_state = tuple(sorted(pi_final[g]))
+                    transition.add(states_map[state], states_map[tuple_state], symbol)
+
+        return FiniteAutomata(transition, initial, final)
+
     def get_deterministic_automata(self):
+        assert not self.has_null_transitions()
+
         if not self.is_non_deterministic():
             return FiniteAutomata(self.transition, self.initial, self.final)
 
@@ -254,10 +358,13 @@ class FiniteAutomata:
         for each in self.state_power_set:
             for symbol in self.state_power_set[each]:
                 states = self.state_power_set[each][symbol]
+
                 tuple_state = tuple(sorted(states))
                 transition.add(states_map[each], states_map[tuple_state], symbol)
-                if len(self.final.intersection(states)):
-                    final.add(states_map[tuple_state])
+
+            tuple_current_state = tuple(sorted(each))
+            if len(self.final.intersection(each)):
+                final.add(states_map[tuple_current_state])
 
         return FiniteAutomata(transition, states_map[tuple({self.initial})], final)
 
@@ -275,6 +382,8 @@ class FiniteAutomata:
         return is_ndfa
 
     def remove_null_transitions(self):
+        assert self.has_null_transitions()
+
         g = networkx.DiGraph()
         final = [state for state in self.epsilon_closure
                  if len(set(self.epsilon_closure[state]).intersection(self.final))]

@@ -1,6 +1,8 @@
 from pyauto.fsm import *
 from utils.builder import *
 
+import copy
+
 
 def test_case_1(inp, plot=False):
     transition = Transition()
@@ -32,14 +34,20 @@ def test_case_1(inp, plot=False):
     assert not nfsm.has_null_transitions()
 
     nfsm_value = nfsm.read(inp)
+    assert dfsm_value == nfsm_value
 
     rebased_nfsm = nfsm.rebase(17)
     rebased_nfsm_value = rebased_nfsm.read(inp)
+    assert rebased_nfsm_value == nfsm_value
+
+    minimized = nfsm.get_deterministic_automata().minimize_automata()
+    assert minimized.read(inp) == nfsm_value
 
     if plot:
-        AutomataPlotter.plot(dfsm)
+        AutomataPlotter.plot(nfsm)
+        AutomataPlotter.plot(minimized)
 
-    return dfsm_value and nfsm_value and rebased_nfsm_value
+    return rebased_nfsm_value
 
 
 def test_case_2(inp, plot=False):
@@ -54,9 +62,20 @@ def test_case_2(inp, plot=False):
     assert nfsm.has_null_transitions()
 
     nfsm_value = nfsm.read(inp)
+    stripped = nfsm.remove_null_transitions()
+    dfsm = stripped.get_deterministic_automata()
+
+    assert not dfsm.is_non_deterministic()
+    assert dfsm.read(inp) == nfsm_value
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == nfsm_value
 
     if plot:
         AutomataPlotter.plot(nfsm)
+        AutomataPlotter.plot(dfsm)
+        AutomataPlotter.plot(stripped)
+        AutomataPlotter.plot(minimized)
 
     return nfsm_value
 
@@ -91,6 +110,12 @@ def test_case_5(inp, plot=False):
 
     expr_value = expr.read(inp)
 
+    dfsm = expr.get_deterministic_automata()
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
+
     if plot:
         AutomataPlotter.plot(expr)
 
@@ -106,6 +131,12 @@ def test_case_6(inp, plot=False):
     assert not expr.has_null_transitions()
 
     expr_value = expr.read(inp)
+
+    dfsm = expr.get_deterministic_automata()
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
 
     if plot:
         AutomataPlotter.plot(expr)
@@ -123,6 +154,13 @@ def test_case_7(inp, plot=False):
     assert not expr.has_null_transitions()
 
     expr_value = expr.read(inp)
+
+    dfsm = expr.get_deterministic_automata()
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
+
     if plot:
         AutomataPlotter.plot(expr)
 
@@ -154,6 +192,12 @@ def test_case_8(inp, plot=False):
 
     expr_value = expr.read(inp)
 
+    dfsm = expr.get_deterministic_automata()
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
+
     if plot:
         AutomataPlotter.plot(expr)
 
@@ -167,8 +211,15 @@ def test_case_9(inp, plot=False):
     stripped = expr.remove_null_transitions()
     expr_value = stripped.read(inp)
 
+    dfsm = stripped.get_deterministic_automata()
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
+
     if plot:
-        AutomataPlotter.plot(stripped)
+        AutomataPlotter.plot(dfsm)
+        AutomataPlotter.plot(minimized)
 
     return expr_value
 
@@ -185,9 +236,16 @@ def test_case_10(inp, plot=False):
     stripped = expr.remove_null_transitions()
     expr_value = stripped.read(inp)
 
+    dfsm = stripped.get_deterministic_automata()
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
+
     if plot:
         AutomataPlotter.plot(expr)
         AutomataPlotter.plot(stripped)
+        AutomataPlotter.plot(minimized)
 
     return expr_value
 
@@ -214,6 +272,35 @@ def test_case_11(inp, plot=False):
 
     if plot:
         AutomataPlotter.plot(dfsm)
+
+    return expr_value
+
+
+def test_case_12(inp, plot=False):
+    transition = Transition()
+    transition.add("e0", "e0", {"0", "1"})
+    transition.add("e0", "e1", {"1"})
+    transition.add("e0", "e3", {"0"})
+
+    transition.add("e1", "e2", {"1"})
+    transition.add("e2", "e2", {"0", "1"})
+
+    transition.add("e3", "e4", {"0"})
+    transition.add("e4", "e4", {"0", "1"})
+
+    nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
+    assert not nfsm.has_null_transitions()
+    dfsm = nfsm.get_deterministic_automata()
+
+    expr_value = dfsm.read(inp)
+
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
+
+    if plot:
+        AutomataPlotter.plot(minimized)
 
     return expr_value
 
@@ -313,8 +400,20 @@ def run_cases():
     assert not test_case_11("1")
     assert not test_case_11("0")
 
+    assert test_case_12("00111011110")
+    assert test_case_12("00")
+    assert test_case_12("11")
+    assert test_case_12("001110011010")
+    assert test_case_12("010101010101010100")
+    assert not test_case_12("0101010101010101")
+    assert not test_case_12("")
+    assert not test_case_12("1")
+    assert not test_case_12("0")
+
 
 if __name__ == '__main__':
     print("[+] FD ")
     run_cases()
-    # print(test_case_11("01", True))
+    # test_case_10("aa01000101010101c", True)
+    # print(test_case_2("", True))
+    # test_case_1("00111011110", True)
