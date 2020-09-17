@@ -136,13 +136,13 @@ class FiniteAutomata:
         self.g = self.build_graph()
 
         self.epsilon_closure = {}
-        if self.has_epsilon():
+        if self.has_null_transitions():
             for each in self.g.nodes:
-                self.build_epsilon_closure(initial=each, node=each)
+                self._build_epsilon_closure(initial=each, node=each)
 
         self.state_power_set = {}
-        if self.is_non_deterministic() and not self.has_epsilon():
-            self.build_power_state_set({self.initial})
+        if self.is_non_deterministic() and not self.has_null_transitions():
+            self._build_power_state_set({self.initial})
 
     def __str__(self):
         string = str(self.transition)
@@ -211,8 +211,20 @@ class FiniteAutomata:
         else:
             g.add_edge(ei, ef, symbol=[symbol])
 
-    def build_power_state_set(self, state_set):
-        assert not self.has_epsilon()
+    def _build_epsilon_closure(self, initial, node):
+        if initial not in self.epsilon_closure:
+            self.epsilon_closure[initial] = {initial}
+        else:
+            self.epsilon_closure[initial].add(node)
+
+        for edge in self.g.out_edges(node):
+            if Transition.EPSILON in self._get_symbol_from_edge(self.g, edge):
+                self.epsilon_closure[initial].add(node)
+                if edge[1] not in self.epsilon_closure[initial]:
+                    self._build_epsilon_closure(initial, edge[1])
+
+    def _build_power_state_set(self, state_set):
+        assert not self.has_null_transitions()
         tuple_state = tuple(sorted(state_set))
 
         self.state_power_set[tuple_state] = {s: set() for s in self.transition.alphabet if s != Transition.EPSILON}
@@ -225,7 +237,29 @@ class FiniteAutomata:
         for s in self.state_power_set[tuple_state]:
             added_sets = tuple(sorted(self.state_power_set[tuple_state][s]))
             if len(added_sets) and added_sets not in self.state_power_set:
-                self.build_power_state_set(self.state_power_set[tuple_state][s])
+                self._build_power_state_set(self.state_power_set[tuple_state][s])
+
+    def get_deterministic_automata(self):
+        if not self.is_non_deterministic():
+            return FiniteAutomata(self.transition, self.initial, self.final)
+
+        assert len(self.state_power_set) > 0
+
+        states_map = {}
+        prefix = chr((ord(self.initial.prefix[0]) - ord('a') - 1) % (ord('z') - ord('a') + 1) + ord('a'))
+        for i, each in enumerate(self.state_power_set):
+            states_map[each] = prefix + str(i)
+
+        transition, final = Transition(), set()
+        for each in self.state_power_set:
+            for symbol in self.state_power_set[each]:
+                states = self.state_power_set[each][symbol]
+                tuple_state = tuple(sorted(states))
+                transition.add(states_map[each], states_map[tuple_state], symbol)
+                if len(self.final.intersection(states)):
+                    final.add(states_map[tuple_state])
+
+        return FiniteAutomata(transition, states_map[tuple({self.initial})], final)
 
     def is_non_deterministic(self):
         is_ndfa = False
@@ -240,19 +274,7 @@ class FiniteAutomata:
 
         return is_ndfa
 
-    def build_epsilon_closure(self, initial, node):
-        if initial not in self.epsilon_closure:
-            self.epsilon_closure[initial] = {initial}
-        else:
-            self.epsilon_closure[initial].add(node)
-
-        for edge in self.g.out_edges(node):
-            if Transition.EPSILON in self._get_symbol_from_edge(self.g, edge):
-                self.epsilon_closure[initial].add(node)
-                if edge[1] not in self.epsilon_closure[initial]:
-                    self.build_epsilon_closure(initial, edge[1])
-
-    def strip_epsilon(self):
+    def remove_null_transitions(self):
         g = networkx.DiGraph()
         final = [state for state in self.epsilon_closure
                  if len(set(self.epsilon_closure[state]).intersection(self.final))]
@@ -282,7 +304,7 @@ class FiniteAutomata:
 
         return FiniteAutomata(transition, self.initial, final)
 
-    def has_epsilon(self):
+    def has_null_transitions(self):
         for edge in self.g.edges:
             if Transition.EPSILON in self._get_symbol_from_edge(self.g, edge):
                 return True
@@ -361,7 +383,7 @@ class FiniteAutomata:
             node = a.get_node(str(state))
             node.attr["shape"] = "doublecircle"
 
-        if self.has_epsilon():
+        if self.has_null_transitions():
             important_nodes, important_to_final_nodes = [], []
             for each in self.g.nodes:
                 in_symbol = []

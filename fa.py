@@ -13,7 +13,7 @@ def test_case_1(inp, plot=False):
     transition.add("e3", "e3", {"0", "1"})
 
     dfsm = FiniteAutomata(transition, "e0", {"e3"})
-    assert not dfsm.has_epsilon()
+    assert not dfsm.has_null_transitions()
 
     dfsm_value = dfsm.read(inp)
 
@@ -29,7 +29,7 @@ def test_case_1(inp, plot=False):
     transition.add("e4", "e4", {"0", "1"})
 
     nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
-    assert not nfsm.has_epsilon()
+    assert not nfsm.has_null_transitions()
 
     nfsm_value = nfsm.read(inp)
 
@@ -51,7 +51,7 @@ def test_case_2(inp, plot=False):
     transition.add("s2", "s1", {"$"})
 
     nfsm = FiniteAutomata(transition, "s0", {"s1"})
-    assert nfsm.has_epsilon()
+    assert nfsm.has_null_transitions()
 
     nfsm_value = nfsm.read(inp)
 
@@ -63,7 +63,7 @@ def test_case_2(inp, plot=False):
 
 def test_case_3(inp, plot=False):
     expr = (Z("1") + Z("10")) | ~Z("01")
-    assert expr.has_epsilon()
+    assert expr.has_null_transitions()
 
     expr_value = expr.read(inp)
 
@@ -75,7 +75,7 @@ def test_case_3(inp, plot=False):
 
 def test_case_4(inp, plot=False):
     expr = Z("00") + (~Z("0") | Z("1"))
-    assert expr.has_epsilon()
+    assert expr.has_null_transitions()
 
     expr_value = expr.read(inp)
 
@@ -87,7 +87,7 @@ def test_case_4(inp, plot=False):
 
 def test_case_5(inp, plot=False):
     expr = FiniteAutomataBuilder.get_finite_automata_from_csv("./csv/zuto.csv")
-    assert not expr.has_epsilon()
+    assert not expr.has_null_transitions()
 
     expr_value = expr.read(inp)
 
@@ -103,7 +103,7 @@ def test_case_6(inp, plot=False):
                 name="w")
 
     expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
-    assert not expr.has_epsilon()
+    assert not expr.has_null_transitions()
 
     expr_value = expr.read(inp)
 
@@ -120,7 +120,7 @@ def test_case_7(inp, plot=False):
 
     # print(unit.get_frame(total=True))
     expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
-    assert not expr.has_epsilon()
+    assert not expr.has_null_transitions()
 
     expr_value = expr.read(inp)
     if plot:
@@ -149,8 +149,8 @@ def test_case_8(inp, plot=False):
 
     print(expr_3.read("bbc"))
 
-    expr = (expr_1 | expr_2).strip_epsilon()
-    assert not expr.has_epsilon()
+    expr = (expr_1 | expr_2).remove_null_transitions()
+    assert not expr.has_null_transitions()
 
     expr_value = expr.read(inp)
 
@@ -162,9 +162,9 @@ def test_case_8(inp, plot=False):
 
 def test_case_9(inp, plot=False):
     expr = Z("00") + (~Z("0") | Z("1"))
-    assert expr.has_epsilon()
+    assert expr.has_null_transitions()
 
-    stripped = expr.strip_epsilon()
+    stripped = expr.remove_null_transitions()
     expr_value = stripped.read(inp)
 
     if plot:
@@ -180,9 +180,9 @@ def test_case_10(inp, plot=False):
     expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
 
     expr = ~Z("aa") | expr | ~Z("c")
-    assert expr.has_epsilon()
+    assert expr.has_null_transitions()
 
-    stripped = expr.strip_epsilon()
+    stripped = expr.remove_null_transitions()
     expr_value = stripped.read(inp)
 
     if plot:
@@ -205,16 +205,15 @@ def test_case_11(inp, plot=False):
     transition.add("e4", "e4", {"0", "1"})
 
     nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
-    assert not nfsm.has_epsilon()
+    assert not nfsm.has_null_transitions()
+    dfsm = nfsm.get_deterministic_automata()
 
-    expr_value = nfsm.read(inp)
+    expr_value = dfsm.read(inp)
 
-    assert nfsm.is_non_deterministic()
-
-    print(nfsm.state_power_set)
+    assert not dfsm.is_non_deterministic()
 
     if plot:
-        AutomataPlotter.plot(nfsm)
+        AutomataPlotter.plot(dfsm)
 
     return expr_value
 
@@ -304,8 +303,18 @@ def run_cases():
     assert not test_case_10("aaaaa010001cccc")
     assert not test_case_10("aaaa0110001cccc")
 
+    assert test_case_11("00111011110")
+    assert test_case_11("00")
+    assert test_case_11("11")
+    assert test_case_11("001110011010")
+    assert test_case_11("010101010101010100")
+    assert not test_case_11("0101010101010101")
+    assert not test_case_11("")
+    assert not test_case_11("1")
+    assert not test_case_11("0")
+
 
 if __name__ == '__main__':
     print("[+] FD ")
-    # run_cases()
-    print(test_case_11("01", True))
+    run_cases()
+    # print(test_case_11("01", True))
