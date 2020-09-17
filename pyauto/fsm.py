@@ -25,6 +25,10 @@ class State:
     def __eq__(self, other):
         return isinstance(other, State) and self.name == other.name
 
+    def __lt__(self, other):
+        assert isinstance(other, State)
+        return self.number < other.number
+
     def __str__(self):
         return self.name
 
@@ -132,10 +136,13 @@ class FiniteAutomata:
         self.g = self.build_graph()
 
         self.epsilon_closure = {}
-
         if self.has_epsilon():
             for each in self.g.nodes:
                 self.build_epsilon_closure(initial=each, node=each)
+
+        self.state_power_set = {}
+        if self.is_non_deterministic() and not self.has_epsilon():
+            self.build_power_state_set({self.initial})
 
     def __str__(self):
         string = str(self.transition)
@@ -192,15 +199,55 @@ class FiniteAutomata:
 
         return FiniteAutomata(transition, self.initial, other.final)
 
+    @staticmethod
+    def _get_symbol_from_edge(g, edge):
+        return g.get_edge_data(edge[0], edge[1])["symbol"]
+
+    @staticmethod
+    def _add_edge_to_graph(g, ei, ef, symbol):
+        edge = g.get_edge_data(ei, ef)
+        if edge is not None:
+            edge["symbol"].append(symbol)
+        else:
+            g.add_edge(ei, ef, symbol=[symbol])
+
+    def build_power_state_set(self, state_set):
+        assert not self.has_epsilon()
+        tuple_state = tuple(sorted(state_set))
+
+        self.state_power_set[tuple_state] = {s: set() for s in self.transition.alphabet if s != Transition.EPSILON}
+
+        for state in state_set:
+            for edge in self.g.out_edges(state):
+                for symbol in self._get_symbol_from_edge(self.g, edge):
+                    self.state_power_set[tuple_state][symbol].add(edge[1])
+
+        for s in self.state_power_set[tuple_state]:
+            added_sets = tuple(sorted(self.state_power_set[tuple_state][s]))
+            if len(added_sets) and added_sets not in self.state_power_set:
+                self.build_power_state_set(self.state_power_set[tuple_state][s])
+
+    def is_non_deterministic(self):
+        is_ndfa = False
+
+        for node in self.g.nodes:
+            out_symbol = []
+            for edge in self.g.out_edges(node):
+                out_symbol += self._get_symbol_from_edge(self.g, edge)
+
+            if len(out_symbol) != len(set(out_symbol)):
+                is_ndfa = True
+
+        return is_ndfa
+
     def build_epsilon_closure(self, initial, node):
         if initial not in self.epsilon_closure:
             self.epsilon_closure[initial] = {initial}
         else:
             self.epsilon_closure[initial].add(node)
 
-        for edge in filter(lambda n: n != initial and n != node, self.g.out_edges(node)):
-            symbol = self.g.get_edge_data(edge[0], edge[1])["symbol"]
-            if symbol == Transition.EPSILON:
+        for edge in self.g.out_edges(node):
+            if Transition.EPSILON in self._get_symbol_from_edge(self.g, edge):
                 self.epsilon_closure[initial].add(node)
                 if edge[1] not in self.epsilon_closure[initial]:
                     self.build_epsilon_closure(initial, edge[1])
@@ -218,7 +265,7 @@ class FiniteAutomata:
                 for q in self.epsilon_closure:
                     for symbol in filter(lambda s: s != Transition.EPSILON, self.transition.delta[eclose]):
                         if q in self.transition.delta[eclose][symbol]:
-                            g.add_edge(p, q, symbol=symbol)
+                            self._add_edge_to_graph(g, p, q, symbol)
 
         for state in list(g.nodes):
             try:
@@ -230,14 +277,14 @@ class FiniteAutomata:
 
         transition = Transition()
         for edge in g.edges:
-            symbol = g.get_edge_data(edge[0], edge[1])["symbol"]
-            transition.add(edge[0], edge[1], symbol)
+            for symbol in self._get_symbol_from_edge(g, edge):
+                transition.add(edge[0], edge[1], symbol)
 
         return FiniteAutomata(transition, self.initial, final)
 
     def has_epsilon(self):
         for edge in self.g.edges:
-            if self.g.edges[edge]["symbol"] == Transition.EPSILON:
+            if Transition.EPSILON in self._get_symbol_from_edge(self.g, edge):
                 return True
 
         return False
@@ -273,7 +320,7 @@ class FiniteAutomata:
         for ei in self.transition.delta:
             for symbol in self.transition.delta[ei]:
                 for ef in self.transition.delta[ei][symbol]:
-                    g.add_edge(ei, ef, symbol=symbol)
+                    self._add_edge_to_graph(g, ei, ef, symbol)
 
         return g
 
@@ -317,12 +364,13 @@ class FiniteAutomata:
         if self.has_epsilon():
             important_nodes, important_to_final_nodes = [], []
             for each in self.g.nodes:
-                in_symbol = [self.g.get_edge_data(edge[0], edge[1])["symbol"] for edge in self.g.in_edges(each)
-                             if self.g.get_edge_data(edge[0], edge[1])["symbol"] != Transition.EPSILON]
+                in_symbol = []
+                for edge in self.g.in_edges(node):
+                    in_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != Transition.EPSILON]
 
-                out_edges = self.g.out_edges(each)
-                out_symbol = [self.g.get_edge_data(edge[0], edge[1])["symbol"] for edge in out_edges
-                              if self.g.get_edge_data(edge[0], edge[1])["symbol"] != Transition.EPSILON]
+                out_symbol = []
+                for edge in self.g.out_edges(node):
+                    out_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != Transition.EPSILON]
 
                 if len(in_symbol) >= 1 and not len(out_symbol):
                     important_nodes.append(each)
@@ -355,14 +403,27 @@ class FiniteAutomata:
 
         a.layout("dot")
 
+        edges = {ei: {} for ei in self.transition.delta}
         for ei in self.transition.delta:
             for symbol in self.transition.delta[ei]:
                 for ef in self.transition.delta[ei][symbol]:
-                    edge = a.get_edge(str(ei), str(ef))
-                    edge.attr["xlabel"] = str(symbol)
+                    if ef not in edges[ei]:
+                        edges[ei][ef] = str(symbol)
+                    else:
+                        edges[ei][ef] = edges[ei][ef] + "," + str(symbol)
+
+        for ei in edges:
+            for ef in edges[ei]:
+                symbol = edges[ei][ef]
+
+                edge = a.get_edge(str(ei), str(ef))
+                edge.attr["label"] = symbol
+                if symbol not in symbol_colors and "," in symbol:
+                    edge.attr["fontcolor"] = symbol_colors[symbol.split(",")[0]]
+                    edge.attr["color"] = symbol_colors[symbol.split(",")[0]]
+                else:
                     edge.attr["fontcolor"] = symbol_colors[symbol]
                     edge.attr["color"] = symbol_colors[symbol]
-
         return a
 
 

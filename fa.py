@@ -192,6 +192,33 @@ def test_case_10(inp, plot=False):
     return expr_value
 
 
+def test_case_11(inp, plot=False):
+    transition = Transition()
+    transition.add("e0", "e0", {"0", "1"})
+    transition.add("e0", "e1", {"1"})
+    transition.add("e0", "e3", {"0"})
+
+    transition.add("e1", "e2", {"1"})
+    transition.add("e2", "e2", {"0", "1"})
+
+    transition.add("e3", "e4", {"0"})
+    transition.add("e4", "e4", {"0", "1"})
+
+    nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
+    assert not nfsm.has_epsilon()
+
+    expr_value = nfsm.read(inp)
+
+    assert nfsm.is_non_deterministic()
+
+    print(nfsm.state_power_set)
+
+    if plot:
+        AutomataPlotter.plot(nfsm)
+
+    return expr_value
+
+
 def run_cases():
     assert test_case_1("00111011110")
     assert test_case_1("00")
@@ -269,14 +296,6 @@ def run_cases():
     assert test_case_9("0000001")
     assert not test_case_9("1111")
 
-    assert test_case_10("aa0100010101010100c")
-    assert test_case_10("aa0100010101010100c")
-    assert test_case_10("aa0100010101010100cccccc")
-    assert test_case_10("aaaa010001000cccc")
-    assert not test_case_10("aaaa010001000cccc")
-    assert not test_case_10("aaaaa010001cccc")
-    assert not test_case_10("aaaa0110001cccc")
-
     assert test_case_10("aa01000101010101c")
     assert test_case_10("aa010001010101010c")
     assert test_case_10("aa010001010101010cccccc")
@@ -289,5 +308,4 @@ def run_cases():
 if __name__ == '__main__':
     print("[+] FD ")
     # run_cases()
-
-    print(test_case_10("aa010001010101010101010c", True))
+    print(test_case_11("01", True))
