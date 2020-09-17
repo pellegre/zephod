@@ -9,14 +9,15 @@ import re
 class State:
     def __init__(self, state):
         if isinstance(state, str):
-            self.name = state
-            groups = re.search("([a-zA-Z]+)([0-9]+)", self.name).groups()
+            groups = re.search("([a-zA-Z]+)([0-9]+)", state).groups()
             self.prefix = groups[0]
             self.number = int(groups[1])
         else:
-            self.name = state.name
             self.prefix = state.prefix
             self.number = state.number
+
+        # self.name = "$" + self.prefix + "_" + str(self.number) + "$"
+        self.name = self.prefix + str(self.number)
 
     def __hash__(self):
         return hash(self.name)
@@ -130,6 +131,12 @@ class FiniteAutomata:
 
         self.g = self.build_graph()
 
+        self.epsilon_closure = {}
+
+        if self.has_epsilon():
+            for each in self.g.nodes:
+                self.build_epsilon_closure(initial=each, node=each)
+
     def __str__(self):
         string = str(self.transition)
         string += "\ninitial = " + str(self.initial) + " ; final = " + str(self.final)
@@ -163,13 +170,13 @@ class FiniteAutomata:
 
         transition = Transition()
         transition.join(this.transition)
-
         transition.add(self.initial, this.initial, Transition.EPSILON)
         transition.add(self.initial, final, Transition.EPSILON)
 
         for fe in this.final:
             transition.add(fe, final, Transition.EPSILON)
-            transition.add(fe, this.initial, Transition.EPSILON)
+            if fe != this.initial:
+                transition.add(fe, this.initial, Transition.EPSILON)
 
         return FiniteAutomata(transition, self.initial, {final})
 
@@ -184,6 +191,56 @@ class FiniteAutomata:
             transition.add(fe, other.initial, Transition.EPSILON)
 
         return FiniteAutomata(transition, self.initial, other.final)
+
+    def build_epsilon_closure(self, initial, node):
+        if initial not in self.epsilon_closure:
+            self.epsilon_closure[initial] = {initial}
+        else:
+            self.epsilon_closure[initial].add(node)
+
+        for edge in filter(lambda n: n != initial and n != node, self.g.out_edges(node)):
+            symbol = self.g.get_edge_data(edge[0], edge[1])["symbol"]
+            if symbol == Transition.EPSILON:
+                self.epsilon_closure[initial].add(node)
+                if edge[1] not in self.epsilon_closure[initial]:
+                    self.build_epsilon_closure(initial, edge[1])
+
+    def strip_epsilon(self):
+        g = networkx.DiGraph()
+        final = [state for state in self.epsilon_closure
+                 if len(set(self.epsilon_closure[state]).intersection(self.final))]
+
+        for f in final:
+            g.add_node(f)
+
+        for p in self.epsilon_closure:
+            for eclose in filter(lambda state: state in self.transition.delta, self.epsilon_closure[p]):
+                for q in self.epsilon_closure:
+                    for symbol in filter(lambda s: s != Transition.EPSILON, self.transition.delta[eclose]):
+                        if q in self.transition.delta[eclose][symbol]:
+                            g.add_edge(p, q, symbol=symbol)
+
+        for state in list(g.nodes):
+            try:
+                networkx.dijkstra_path(g, self.initial, state)
+            except networkx.exception.NetworkXNoPath:
+                g.remove_node(state)
+                if state in final:
+                    final.remove(state)
+
+        transition = Transition()
+        for edge in g.edges:
+            symbol = g.get_edge_data(edge[0], edge[1])["symbol"]
+            transition.add(edge[0], edge[1], symbol)
+
+        return FiniteAutomata(transition, self.initial, final)
+
+    def has_epsilon(self):
+        for edge in self.g.edges:
+            if self.g.edges[edge]["symbol"] == Transition.EPSILON:
+                return True
+
+        return False
 
     def parse(self, string, state):
         if not len(string) and state in self.final:
@@ -222,9 +279,9 @@ class FiniteAutomata:
 
     @staticmethod
     def get_colors():
-        return ["lightskyblue4", "green4", "indianred4", "lavenderblush4", "olivedrab4"
-                  "purple4", "steelblue4", "hotpink4",
-                  "orangered4", "turquoise4"]
+        return ["lightskyblue4", "green4", "indianred4", "lavenderblush4", "olivedrab4",
+                "purple4", "steelblue4", "hotpink4",
+                "orangered4", "turquoise4"]
 
     def build_dot(self):
         colors = self.get_colors()
@@ -256,6 +313,42 @@ class FiniteAutomata:
         for state in filter(lambda n: n in self.final, self.transition.states):
             node = a.get_node(str(state))
             node.attr["shape"] = "doublecircle"
+
+        if self.has_epsilon():
+            important_nodes, important_to_final_nodes = [], []
+            for each in self.g.nodes:
+                in_symbol = [self.g.get_edge_data(edge[0], edge[1])["symbol"] for edge in self.g.in_edges(each)
+                             if self.g.get_edge_data(edge[0], edge[1])["symbol"] != Transition.EPSILON]
+
+                out_edges = self.g.out_edges(each)
+                out_symbol = [self.g.get_edge_data(edge[0], edge[1])["symbol"] for edge in out_edges
+                              if self.g.get_edge_data(edge[0], edge[1])["symbol"] != Transition.EPSILON]
+
+                if len(in_symbol) >= 1 and not len(out_symbol):
+                    important_nodes.append(each)
+
+                    for neighbor in self.g.neighbors(each):
+                        if neighbor in self.final:
+                            important_to_final_nodes.append(each)
+
+            if len(important_nodes) > 0:
+                important_nodes.append(self.initial)
+
+            if len(important_nodes) > 0:
+                a.add_node("important", fillcolor="darksalmon", style="filled")
+
+            for state in important_nodes:
+                node = a.get_node(str(state))
+                node.attr["fillcolor"] = "darksalmon"
+                node.attr["style"] = "filled"
+
+            if len(important_to_final_nodes) > 0:
+                a.add_node("important\n(to final)", fillcolor="tomato", style="filled")
+
+            for state in important_to_final_nodes:
+                node = a.get_node(str(state))
+                node.attr["fillcolor"] = "tomato"
+                node.attr["style"] = "filled"
 
         a.add_node("hidden", style="invisible")
         a.add_edge("hidden", str(self.initial))

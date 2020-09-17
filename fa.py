@@ -1,12 +1,6 @@
 from pyauto.fsm import *
 from utils.builder import *
 
-import random
-import string
-
-import matplotlib.pyplot as plt
-import subprocess
-
 
 def test_case_1(inp, plot=False):
     transition = Transition()
@@ -19,6 +13,8 @@ def test_case_1(inp, plot=False):
     transition.add("e3", "e3", {"0", "1"})
 
     dfsm = FiniteAutomata(transition, "e0", {"e3"})
+    assert not dfsm.has_epsilon()
+
     dfsm_value = dfsm.read(inp)
 
     transition = Transition()
@@ -33,6 +29,8 @@ def test_case_1(inp, plot=False):
     transition.add("e4", "e4", {"0", "1"})
 
     nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
+    assert not nfsm.has_epsilon()
+
     nfsm_value = nfsm.read(inp)
 
     rebased_nfsm = nfsm.rebase(17)
@@ -53,6 +51,8 @@ def test_case_2(inp, plot=False):
     transition.add("s2", "s1", {"$"})
 
     nfsm = FiniteAutomata(transition, "s0", {"s1"})
+    assert nfsm.has_epsilon()
+
     nfsm_value = nfsm.read(inp)
 
     if plot:
@@ -63,6 +63,7 @@ def test_case_2(inp, plot=False):
 
 def test_case_3(inp, plot=False):
     expr = (Z("1") + Z("10")) | ~Z("01")
+    assert expr.has_epsilon()
 
     expr_value = expr.read(inp)
 
@@ -74,6 +75,7 @@ def test_case_3(inp, plot=False):
 
 def test_case_4(inp, plot=False):
     expr = Z("00") + (~Z("0") | Z("1"))
+    assert expr.has_epsilon()
 
     expr_value = expr.read(inp)
 
@@ -85,6 +87,8 @@ def test_case_4(inp, plot=False):
 
 def test_case_5(inp, plot=False):
     expr = FiniteAutomataBuilder.get_finite_automata_from_csv("./csv/zuto.csv")
+    assert not expr.has_epsilon()
+
     expr_value = expr.read(inp)
 
     if plot:
@@ -95,9 +99,11 @@ def test_case_5(inp, plot=False):
 
 def test_case_6(inp, plot=False):
     unit = Unit(alphabet={"a", "b", "c", "d"},
-                constraints=[Odd(pattern="b"), Even(pattern="d"), NotContained("addc")])
+                constraints=[Odd(pattern="b"), Even(pattern="d"), NotContained("addc")],
+                name="w")
 
     expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
+    assert not expr.has_epsilon()
 
     expr_value = expr.read(inp)
 
@@ -109,10 +115,12 @@ def test_case_6(inp, plot=False):
 
 def test_case_7(inp, plot=False):
     unit = Unit(alphabet={"a", "b", "c", "d"},
-                constraints=[Odd(pattern="b"), NotContained("adc")])
+                constraints=[Odd(pattern="b"), NotContained("adc")],
+                name="w")
 
     # print(unit.get_frame(total=True))
     expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
+    assert not expr.has_epsilon()
 
     expr_value = expr.read(inp)
     if plot:
@@ -123,20 +131,63 @@ def test_case_7(inp, plot=False):
 
 def test_case_8(inp, plot=False):
     unit_1 = Unit(alphabet={"a", "b"},
-                  constraints=[Even(pattern="b")])
+                  constraints=[Even(pattern="b")],
+                  name="x")
     expr_1 = FiniteAutomataBuilder.get_finite_automata_from_unit(unit_1)
 
     unit_2 = Unit(alphabet={"a", "c"},
-                  constraints=[Odd(pattern="c"), NotContained("aac")])
+                  constraints=[Odd(pattern="c"), NotContained("aac")],
+                  name="w")
     expr_2 = FiniteAutomataBuilder.get_finite_automata_from_unit(unit_2)
 
-    expr = expr_1 | expr_2
-    expr_value = expr.read(inp)
+    unit_3 = unit_1 | unit_2
+    expr_3 = FiniteAutomataBuilder.get_finite_automata_from_unit(unit_3)
 
-    print(expr_value)
+    print(unit_1.get_frame(total=True))
+    print(unit_2.get_frame(total=True))
+    print(unit_3.get_frame(total=True))
+
+    print(expr_3.read("bbc"))
+
+    expr = (expr_1 | expr_2).strip_epsilon()
+    assert not expr.has_epsilon()
+
+    expr_value = expr.read(inp)
 
     if plot:
         AutomataPlotter.plot(expr)
+
+    return expr_value
+
+
+def test_case_9(inp, plot=False):
+    expr = Z("00") + (~Z("0") | Z("1"))
+    assert expr.has_epsilon()
+
+    stripped = expr.strip_epsilon()
+    expr_value = stripped.read(inp)
+
+    if plot:
+        AutomataPlotter.plot(stripped)
+
+    return expr_value
+
+
+def test_case_10(inp, plot=False):
+    unit = Unit(alphabet={"0", "1"},
+                  constraints=[NotContained(pattern="11"), NotEnd("00")],
+                  name="x")
+    expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
+
+    expr = ~Z("aa") | expr | ~Z("c")
+    assert expr.has_epsilon()
+
+    stripped = expr.strip_epsilon()
+    expr_value = stripped.read(inp)
+
+    if plot:
+        AutomataPlotter.plot(expr)
+        AutomataPlotter.plot(stripped)
 
     return expr_value
 
@@ -212,8 +263,31 @@ def run_cases():
     assert not test_case_7("bbbadc")
     assert not test_case_7("bbbbbadc")
 
+    assert test_case_9("1")
+    assert test_case_9("00")
+    assert test_case_9("00001")
+    assert test_case_9("0000001")
+    assert not test_case_9("1111")
+
+    assert test_case_10("aa0100010101010100c")
+    assert test_case_10("aa0100010101010100c")
+    assert test_case_10("aa0100010101010100cccccc")
+    assert test_case_10("aaaa010001000cccc")
+    assert not test_case_10("aaaa010001000cccc")
+    assert not test_case_10("aaaaa010001cccc")
+    assert not test_case_10("aaaa0110001cccc")
+
+    assert test_case_10("aa01000101010101c")
+    assert test_case_10("aa010001010101010c")
+    assert test_case_10("aa010001010101010cccccc")
+    assert test_case_10("aaaa0100010cccc")
+    assert not test_case_10("aaaa01000100cccc")
+    assert not test_case_10("aaaaa010001cccc")
+    assert not test_case_10("aaaa0110001cccc")
+
 
 if __name__ == '__main__':
     print("[+] FD ")
     # run_cases()
-    test_case_8("abaaabcaac", True)
+
+    print(test_case_10("aa010001010101010101010c", True))

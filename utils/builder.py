@@ -32,7 +32,7 @@ class NotContained(Constraint):
     def __init__(self, pattern):
         super().__init__(pattern)
         self.read_none = "read_none"
-        self.conditions = ["read_" + str(i) + e for i, e in enumerate(self.pattern[:-1])]
+        self.conditions = ["read_" + str(i) + "_" + e for i, e in enumerate(self.pattern[:-1])]
 
     def get_name(self):
         return self.pattern + "_not_contained"
@@ -57,6 +57,39 @@ class NotContained(Constraint):
         for i in range(len(self.conditions) - 1):
             if current == self.conditions[i] and symbol == self.pattern[i + 1]:
                 return self.conditions[i + 1]
+
+        return self.read_none
+
+
+class NotEnd(NotContained):
+    def __init__(self, pattern):
+        super().__init__(pattern)
+        self.read_none = "read_none"
+        self.conditions = ["read_" + str(i) + "_" + e for i, e in enumerate(self.pattern)]
+
+    def get_name(self):
+        return self.pattern + "_not_end"
+
+    def initial(self, condition):
+        return self.read_none == condition
+
+    def final(self, condition):
+        return condition != self.conditions[-1]
+
+    def get_conditions(self):
+        # first should always be default
+        return [self.read_none] + self.conditions
+
+    def next_condition(self, current, symbol):
+        if current == self.read_none and symbol == self.pattern[0]:
+            return self.conditions[0]
+
+        for i in range(len(self.conditions) - 1):
+            if current == self.conditions[i] and symbol == self.pattern[i + 1]:
+                return self.conditions[i + 1]
+
+        if len(set(self.pattern)) == 1 and current == self.conditions[-1] and symbol == self.pattern[0]:
+            return self.conditions[-1]
 
         return self.read_none
 
@@ -102,9 +135,21 @@ class Even(Parity):
 
 
 class Unit:
-    def __init__(self, alphabet, constraints):
-        self.alphabet = sorted(alphabet)
+    def __init__(self, alphabet, constraints, name):
+        self.alphabet = set(sorted(alphabet))
         self.constraints = constraints
+
+        if isinstance(name, str):
+            self.units = {name: self.constraints}
+        else:
+            assert isinstance(name, dict)
+            self.units = name
+
+    def __or__(self, other):
+        alphabet = set(list(self.alphabet) + list(other.alphabet))
+        constraints = self.constraints + other.constraints
+
+        return Unit(alphabet, constraints, name={**self.units, **other.units})
 
     def get_frame(self, total=False):
         columns, names, conditions = ["states"], [], []
@@ -149,7 +194,8 @@ class Unit:
 
         if total:
             return frame
-        return frame[["states", "type"] + self.alphabet]
+
+        return frame[["states", "type"] + list(self.alphabet)]
 
 
 class FiniteAutomataBuilder:
