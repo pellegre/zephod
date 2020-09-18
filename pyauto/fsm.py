@@ -1,120 +1,10 @@
-from graphviz import Digraph
-from enum import Enum
 from networkx.drawing.nx_agraph import to_agraph
 
+from pyauto.delta import *
+
 import networkx
-import re
 import math
 import copy
-
-
-class State:
-    def __init__(self, state):
-        if isinstance(state, str):
-            groups = re.search("([a-zA-Z]+)([0-9]+)", state).groups()
-            self.prefix = groups[0]
-            self.number = int(groups[1])
-        else:
-            self.prefix = state.prefix
-            self.number = state.number
-
-        # self.name = "$" + self.prefix + "_" + str(self.number) + "$"
-        self.name = self.prefix + str(self.number)
-
-    def __hash__(self):
-        return hash(self.name)
-
-    def __eq__(self, other):
-        return isinstance(other, State) and self.name == other.name
-
-    def __lt__(self, other):
-        assert isinstance(other, State)
-        return self.number < other.number
-
-    def __str__(self):
-        return self.name
-
-    def __repr__(self):
-        return self.__str__()
-
-
-class Transition:
-    EPSILON = "$"
-
-    def __init__(self):
-        self.states = set()
-        self.alphabet = {Transition.EPSILON}
-        self.delta = {}
-
-    def add(self, ei, ef, symbols):
-        assertion = [isinstance(s, str) for s in symbols]
-        assert sum(assertion) == len(assertion)
-
-        initial_state, final_state = State(ei), State(ef)
-
-        self.states.add(initial_state)
-        self.states.add(final_state)
-        self.alphabet.update(symbols)
-
-        if initial_state not in self.delta:
-            self.delta[initial_state] = {}
-
-        for s in symbols:
-            if s not in self.delta[initial_state]:
-                self.delta[initial_state][s] = set()
-
-            self.delta[initial_state][s].add(final_state)
-
-    def join(self, other):
-        for ei in other.delta:
-            for symbol in other.delta[ei]:
-                for ef in other.delta[ei][symbol]:
-                    self.add(ei, ef, symbol)
-
-    def __call__(self, state, string):
-        assert state in self.states
-        state_value = state
-        if isinstance(state_value, str):
-            state_value = State(state_value)
-
-        next_states = set()
-        if state_value in self.delta:
-            if len(string):
-                symbol = string[0]
-                assert symbol in self.alphabet
-
-                if symbol in self.delta[state_value]:
-                    next_states.update({(e, string[1:]) for e in self.delta[state_value][symbol]})
-
-            if Transition.EPSILON in self.delta[state_value]:
-                next_states.update({(e, string[:]) for e in self.delta[state_value][Transition.EPSILON]})
-
-        return next_states
-
-    def __str__(self):
-        string = "states = " + str(self.states) + " ; alphabet = " + str(self.alphabet) + "\n"
-        for e in self.delta:
-            for s in self.delta[e]:
-                string += str(e) + " (" + str(s) + ") -> " + str(self.delta[e][s]) + "\n"
-        return string[:-1]
-
-    def __repr__(self):
-        return self.__str__()
-
-    def max_state(self):
-        return max(self.states, key=lambda e: e.number)
-
-    def rebase(self, base):
-        transition = Transition()
-
-        for ei in self.delta:
-            new_ei = ei.prefix + str(ei.number + base)
-            for symbol in self.delta[ei]:
-                for ef in self.delta[ei][symbol]:
-                    new_ef = ef.prefix + str(ef.number + base)
-                    transition.add(new_ei, new_ef, symbol)
-
-        return transition
 
 
 class FiniteAutomata:
@@ -420,18 +310,42 @@ class FiniteAutomata:
 
         return False
 
-    def parse(self, string, state):
-        if not len(string) and state in self.final:
-            return True
-        else:
-            for e, rest in self.transition(state, string):
-                if self.parse(rest, e):
-                    return True
+    def __call__(self, tape):
+        if not len(tape.head()) and self.initial in self.final:
+            done_buffer = tape.copy()
+            done_buffer.done = True
+            done_buffer.consumed = True
 
-        return False
+            return done_buffer
+
+        buffers, accepted = [tape], None
+        while not all(map(lambda b: b.consumed and b.done, buffers)):
+            parsed = set()
+            for buffer in filter(lambda b: not b.done, buffers):
+                parsed.update(self.transition(buffer))
+
+            buffers = [buffer for buffer in parsed]
+
+            consumed_in_final = list(map(lambda b: b.consumed and b.done and b.state() in self.final, buffers))
+            if any(consumed_in_final):
+                accepted = buffers[consumed_in_final.index(True)]
+
+        if accepted:
+            return accepted
+        elif len(buffers):
+            done_buffer = buffers.pop()
+            done_buffer.done = True
+
+            return done_buffer
+        else:
+            done_buffer = tape.copy()
+            done_buffer.done = True
+
+            return done_buffer
 
     def read(self, string):
-        return self.parse(string, self.initial)
+        buffer = self(Buffer(data=string, initial=self.initial))
+        return buffer.state() in self.final and buffer.consumed
 
     def rebase(self, base):
         initial = self.initial.prefix + str(self.initial.number + base)
