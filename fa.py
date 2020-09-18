@@ -346,6 +346,17 @@ def test_case_14():
 
     print(g)
     print(g.is_regular())
+    print(g(length=25))
+
+    g = Grammar(terminal={"a", "b", "c"}, non_terminal={"A", "B", "C"})
+    g.add("S", "A")
+    g.add("A", "aAa")
+    g.add("A", "bAb")
+    g.add("A", "c")
+
+    print(g)
+    print(g.is_context_free())
+    print(g(length=25))
 
 
 def run_cases():
