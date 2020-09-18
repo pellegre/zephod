@@ -1,5 +1,6 @@
 from pyauto.fsm import *
 from utils.builder import *
+from pyauto.grammar import *
 
 import copy
 
@@ -327,6 +328,26 @@ def test_case_13(inp, plot=False):
     return expr_value
 
 
+def test_case_14():
+    g = Grammar(terminal={"0", "1"}, non_terminal={"A", "B", "C"})
+
+    g.add("S", "0A")
+    g.add("S", "1B")
+    g.add("A", "0C")
+    g.add("A", "0")
+    g.add("A", "1B")
+    g.add("B", "0A")
+    g.add("B", "1C")
+    g.add("B", "1")
+    g.add("C", "0C")
+    g.add("C", "0")
+    g.add("C", "1C")
+    g.add("C", "0")
+
+    print(g)
+    print(g.is_regular())
+
+
 def run_cases():
     assert test_case_1("00111011110")
     assert test_case_1("00")
@@ -444,6 +465,7 @@ def run_cases():
 
 if __name__ == '__main__':
     print("[+] FD ")
-    run_cases()
+    test_case_14()
 
+    # run_cases()
     # print(test_case_13("c", True))
