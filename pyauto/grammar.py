@@ -2,7 +2,6 @@ import random
 import copy
 import networkx
 
-
 from pyauto.fsm import *
 
 
@@ -43,6 +42,10 @@ class Grammar:
                     non_terminal_left = ["S"]
                     if "non_terminal" in g.nodes[left]:
                         non_terminal_left.append(g.nodes[left]["non_terminal"])
+
+                    if node in automata.final:
+                        grammar.add("S", Transition.EPSILON)
+
                 else:
                     non_terminal_left = [g.nodes[left]["non_terminal"]]
 
@@ -72,7 +75,7 @@ class Grammar:
         string = "T = " + str(self.terminal) + " ; N = " + str(self.non_terminal) + "\n"
         for l in self.rules:
             for r in self.rules[l]:
-                string += l + "  -> " + r + "\n"
+                string += l + " -> " + r + "\n"
         return string[:-1]
 
     def __repr__(self):
@@ -160,4 +163,6 @@ class Grammar:
         while any(map(lambda s: s in self.non_terminal, string)):
             string = self._run_random_rule(string, length)
 
+        if string == Transition.EPSILON:
+            return ""
         return string

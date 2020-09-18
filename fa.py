@@ -438,6 +438,37 @@ def test_case_14(plot=False, run_grammar=False):
         AutomataPlotter.plot(fda)
 
 
+def test_case_15(inp, plot=False, run_grammar=False):
+    expr = (~(Z("aa") + Z("b")) | ~Z("cd"))
+    assert expr.has_null_transitions()
+
+    stripped = expr.remove_null_transitions()
+    expr_value = stripped.read(inp)
+
+    dfsm = stripped.get_deterministic_automata()
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
+
+    grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+    got_null_string = False
+    for i in range(500):
+        for j in [1, 5, 10, 20, 30]:
+            w = grammar_from_fda(length=j)
+            assert minimized.read(w)
+            if not len(w):
+                got_null_string = True
+
+    assert got_null_string
+
+    if plot:
+        AutomataPlotter.plot(minimized)
+
+    return expr_value
+
+
 def run_cases():
     assert test_case_1("00111011110", run_grammar=True)
     assert test_case_1("00")
@@ -553,6 +584,7 @@ def run_cases():
     assert not test_case_13("")
 
     test_case_14()
+    test_case_15("")
 
 
 if __name__ == '__main__':
