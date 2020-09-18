@@ -305,6 +305,28 @@ def test_case_12(inp, plot=False):
     return expr_value
 
 
+def test_case_13(inp, plot=False):
+    expr = (~(Z("aa") + Z("b")) | (Z("c") + Z("d")) | ~Z("cd"))
+    assert expr.has_null_transitions()
+
+    stripped = expr.remove_null_transitions()
+    expr_value = stripped.read(inp)
+
+    dfsm = stripped.get_deterministic_automata()
+    assert not dfsm.is_non_deterministic()
+
+    minimized = dfsm.minimize_automata()
+    assert minimized.read(inp) == expr_value
+
+    if plot:
+        AutomataPlotter.plot(expr)
+        AutomataPlotter.plot(stripped)
+        AutomataPlotter.plot(dfsm)
+        AutomataPlotter.plot(minimized)
+
+    return expr_value
+
+
 def run_cases():
     assert test_case_1("00111011110")
     assert test_case_1("00")
@@ -410,10 +432,18 @@ def run_cases():
     assert not test_case_12("1")
     assert not test_case_12("0")
 
+    assert test_case_13("c")
+    assert test_case_13("d")
+    assert test_case_13("ccd")
+    assert test_case_13("aaccd")
+    assert not test_case_13("aaaccd")
+    assert not test_case_13("aaaccdd")
+    assert not test_case_13("aaaccdc")
+    assert not test_case_13("")
+
 
 if __name__ == '__main__':
     print("[+] FD ")
     run_cases()
-    # test_case_10("aa01000101010101c", True)
-    # print(test_case_2("", True))
-    # test_case_1("00111011110", True)
+
+    # print(test_case_13("c", True))
