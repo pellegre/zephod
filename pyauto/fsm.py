@@ -313,33 +313,25 @@ class FiniteAutomata:
     def __call__(self, tape):
         if not len(tape.head()) and self.initial in self.final:
             done_buffer = tape.copy()
-            done_buffer.done = True
-
             return done_buffer
 
         buffers, accepted = [tape], None
-        while not all(map(lambda b: not len(b.head()) and b.done, buffers)):
+        while not all(map(lambda b: not len(b.head()) and b.error, buffers)):
             parsed = set()
-            for buffer in filter(lambda b: not b.done, buffers):
+            for buffer in filter(lambda b: not b.error, buffers):
                 parsed.update(self.transition(buffer))
 
             buffers = [buffer for buffer in parsed]
 
-            consumed_in_final = list(map(lambda b:
-                                         not len(b.head()) and b.done and b.state() in self.final, buffers))
+            consumed_in_final = list(map(lambda b: not len(b.head()) and b.state() in self.final, buffers))
             if any(consumed_in_final):
                 accepted = buffers[consumed_in_final.index(True)]
 
         if accepted:
             return accepted
-        elif len(buffers):
-            done_buffer = buffers.pop()
-            done_buffer.done = True
-
-            return done_buffer
         else:
             done_buffer = tape.copy()
-            done_buffer.done = True
+            done_buffer.error = True
 
             return done_buffer
 

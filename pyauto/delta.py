@@ -12,11 +12,11 @@ class Input:
         self.states = [State(initial)]
         self.pointers = [0]
 
-        self.done = False
+        self.error = False
 
     def __str__(self):
         string = "(pointers = " + str(self.pointers) + " , states = " + str(self.states) + ") @ "
-        string += "(done = " + str(self.done) + ") # "
+        string += "(done = " + str(self.error) + ") # "
         if not len(self.head()):
             string += "data = " + str(self.data()) + "\n"
         else:
@@ -29,9 +29,6 @@ class Input:
     def _get_data_from_pointer(self, pointer):
         raise RuntimeError("_get_data_from_pointer not implemented")
 
-    def _check_consumed(self):
-        raise RuntimeError("_check_done not implemented")
-
     def _copy(self, **kwargs):
         raise RuntimeError("_check_done not implemented")
 
@@ -39,7 +36,7 @@ class Input:
         obj = self._copy(initial=self.states[0])
         obj.states = self.states.copy()
         obj.pointers = self.pointers.copy()
-        obj.done = self.done
+        obj.done = self.error
 
         return obj
 
@@ -50,7 +47,7 @@ class Input:
         return self._get_data_from_pointer(self.pointer())
 
     def read(self, state, count):
-        assert not self.done
+        assert not self.error
 
         self.states.append(state)
         self.pointers.append(self.pointer() + count)
@@ -97,7 +94,7 @@ class Consumer:
         if tape.state() == self.source:
             self._consume(tape)
         else:
-            tape.done = True
+            tape.error = True
 
         return tape
 
@@ -111,7 +108,7 @@ class CharConsumer(Consumer):
         if len(tape.head()) and tape.head()[0] == self.character:
             tape.read(self.target, 1)
         else:
-            tape.done = True
+            tape.error = True
 
 
 class NullConsumer(Consumer):
@@ -127,7 +124,6 @@ class NullConsumer(Consumer):
 # delta transition function
 #
 # --------------------------------------------------------------------
-
 
 class State:
     def __init__(self, state):
@@ -201,7 +197,7 @@ class Transition:
     def __call__(self, tape):
         if tape.state() not in self.consumers:
             parsed = tape.copy()
-            parsed.done = True
+            parsed.error = True
             return {parsed}
         else:
             consumers = self.consumers[tape.state()]
@@ -209,12 +205,6 @@ class Transition:
             parsed = set()
             for consumer in consumers:
                 parsed.add(consumer(tape.copy()))
-
-            if not len(parsed):
-                done_buffer = tape.copy()
-                done_buffer.done = True
-
-                return {done_buffer}
 
             return parsed
 
