@@ -314,19 +314,19 @@ class FiniteAutomata:
         if not len(tape.head()) and self.initial in self.final:
             done_buffer = tape.copy()
             done_buffer.done = True
-            done_buffer.consumed = True
 
             return done_buffer
 
         buffers, accepted = [tape], None
-        while not all(map(lambda b: b.consumed and b.done, buffers)):
+        while not all(map(lambda b: not len(b.head()) and b.done, buffers)):
             parsed = set()
             for buffer in filter(lambda b: not b.done, buffers):
                 parsed.update(self.transition(buffer))
 
             buffers = [buffer for buffer in parsed]
 
-            consumed_in_final = list(map(lambda b: b.consumed and b.done and b.state() in self.final, buffers))
+            consumed_in_final = list(map(lambda b:
+                                         not len(b.head()) and b.done and b.state() in self.final, buffers))
             if any(consumed_in_final):
                 accepted = buffers[consumed_in_final.index(True)]
 
@@ -345,7 +345,7 @@ class FiniteAutomata:
 
     def read(self, string):
         buffer = self(Buffer(data=string, initial=self.initial))
-        return buffer.state() in self.final and buffer.consumed
+        return buffer.state() in self.final and not len(buffer.head())
 
     def rebase(self, base):
         initial = self.initial.prefix + str(self.initial.number + base)

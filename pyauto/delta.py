@@ -12,13 +12,12 @@ class Input:
         self.states = [State(initial)]
         self.pointers = [0]
 
-        self.consumed = False
         self.done = False
 
     def __str__(self):
         string = "(pointers = " + str(self.pointers) + " , states = " + str(self.states) + ") @ "
-        string += "(consumed = " + str(self.consumed) + " , done = " + str(self.done) + ") # "
-        if self.consumed:
+        string += "(done = " + str(self.done) + ") # "
+        if not len(self.head()):
             string += "data = " + str(self.data()) + "\n"
         else:
             string += "head = " + str(self.head()) + " (of " + str(self.data()) + ")\n"
@@ -41,7 +40,6 @@ class Input:
         obj.states = self.states.copy()
         obj.pointers = self.pointers.copy()
         obj.done = self.done
-        obj.consumed = self.consumed
 
         return obj
 
@@ -58,8 +56,6 @@ class Input:
         self.pointers.append(self.pointer() + count)
 
         assert len(self.states) == len(self.pointers)
-
-        self.consumed = self._check_consumed()
 
     def state(self):
         return self.states[-1]
@@ -81,9 +77,6 @@ class Buffer(Input):
 
     def _get_data_from_pointer(self, pointer):
         return self.buffer[pointer:]
-
-    def _check_consumed(self):
-        return self.pointer() >= len(self.buffer)
 
 # --------------------------------------------------------------------
 #
