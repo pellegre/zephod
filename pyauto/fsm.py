@@ -50,18 +50,18 @@ class FiniteAutomata:
         this = self.rebase(1)
         other = p.rebase(this.transition.max_state().number + 1)
 
-        transition = Transition()
+        transition = Delta()
         transition.join(this.transition)
         transition.join(other.transition)
 
-        transition.add(self.initial, this.initial, Transition.EPSILON)
-        transition.add(self.initial, other.initial, Transition.EPSILON)
+        transition.add(self.initial, this.initial, NullTransition.SYMBOL)
+        transition.add(self.initial, other.initial, NullTransition.SYMBOL)
 
         final = self.initial.prefix + str(other.transition.max_state().number + 1)
         for fe in this.final:
-            transition.add(fe, final, Transition.EPSILON)
+            transition.add(fe, final, NullTransition.SYMBOL)
         for fe in other.final:
-            transition.add(fe, final, Transition.EPSILON)
+            transition.add(fe, final, NullTransition.SYMBOL)
 
         return FiniteAutomata(transition, self.initial, {final})
 
@@ -69,27 +69,27 @@ class FiniteAutomata:
         this = self.rebase(1)
         final = self.initial.prefix + str(this.transition.max_state().number + 1)
 
-        transition = Transition()
+        transition = Delta()
         transition.join(this.transition)
-        transition.add(self.initial, this.initial, Transition.EPSILON)
-        transition.add(self.initial, final, Transition.EPSILON)
+        transition.add(self.initial, this.initial, NullTransition.SYMBOL)
+        transition.add(self.initial, final, NullTransition.SYMBOL)
 
         for fe in this.final:
-            transition.add(fe, final, Transition.EPSILON)
+            transition.add(fe, final, NullTransition.SYMBOL)
             if fe != this.initial:
-                transition.add(fe, this.initial, Transition.EPSILON)
+                transition.add(fe, this.initial, NullTransition.SYMBOL)
 
         return FiniteAutomata(transition, self.initial, {final})
 
     def __or__(self, p):
         other = p.rebase(self.transition.max_state().number + 1)
 
-        transition = Transition()
+        transition = Delta()
         transition.join(self.transition)
         transition.join(other.transition)
 
         for fe in self.final:
-            transition.add(fe, other.initial, Transition.EPSILON)
+            transition.add(fe, other.initial, NullTransition.SYMBOL)
 
         return FiniteAutomata(transition, self.initial, other.final)
 
@@ -112,7 +112,7 @@ class FiniteAutomata:
             self.epsilon_closure[initial].add(node)
 
         for edge in self.g.out_edges(node):
-            if Transition.EPSILON in self._get_symbol_from_edge(self.g, edge):
+            if NullTransition.SYMBOL in self._get_symbol_from_edge(self.g, edge):
                 self.epsilon_closure[initial].add(node)
                 if edge[1] not in self.epsilon_closure[initial]:
                     self._build_epsilon_closure(initial, edge[1])
@@ -183,7 +183,7 @@ class FiniteAutomata:
             pi_global = copy.deepcopy(pi_next)
             self.minimization_steps[step_number] = {"pi": pi_next, "delta": {}}
 
-            for symbol in filter(lambda s: s != Transition.EPSILON, self.transition.alphabet):
+            for symbol in filter(lambda s: s != NullTransition.SYMBOL, self.transition.alphabet):
                 pi_current, pi_next = pi_next, []
 
                 for pi in pi_current:
@@ -218,7 +218,7 @@ class FiniteAutomata:
 
         assert initial
 
-        transition = Transition()
+        transition = Delta()
         for state in delta:
             for symbol in delta[state]:
                 group = set(delta[state][symbol])
@@ -244,7 +244,7 @@ class FiniteAutomata:
         for i, each in enumerate(self.state_power_set):
             states_map[each] = prefix + str(i)
 
-        transition, final = Transition(), set()
+        transition, final = Delta(), set()
         for each in self.state_power_set:
             for symbol in self.state_power_set[each]:
                 states = self.state_power_set[each][symbol]
@@ -284,7 +284,7 @@ class FiniteAutomata:
         for p in self.epsilon_closure:
             for eclose in filter(lambda state: state in self.transition.delta, self.epsilon_closure[p]):
                 for q in self.epsilon_closure:
-                    for symbol in filter(lambda s: s != Transition.EPSILON, self.transition.delta[eclose]):
+                    for symbol in filter(lambda s: s != NullTransition.SYMBOL, self.transition.delta[eclose]):
                         if q in self.transition.delta[eclose][symbol]:
                             self._add_edge_to_graph(g, p, q, symbol)
 
@@ -296,7 +296,7 @@ class FiniteAutomata:
                 if state in final:
                     final.remove(state)
 
-        transition = Transition()
+        transition = Delta()
         for edge in g.edges:
             for symbol in self._get_symbol_from_edge(g, edge):
                 transition.add(edge[0], edge[1], symbol)
@@ -305,7 +305,7 @@ class FiniteAutomata:
 
     def has_null_transitions(self):
         for edge in self.g.edges:
-            if Transition.EPSILON in self._get_symbol_from_edge(self.g, edge):
+            if NullTransition.SYMBOL in self._get_symbol_from_edge(self.g, edge):
                 return True
 
         return False
@@ -403,11 +403,11 @@ class FiniteAutomata:
             for each in self.g.nodes:
                 in_symbol = []
                 for edge in self.g.in_edges(node):
-                    in_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != Transition.EPSILON]
+                    in_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
 
                 out_symbol = []
                 for edge in self.g.out_edges(node):
-                    out_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != Transition.EPSILON]
+                    out_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
 
                 if len(in_symbol) >= 1 and not len(out_symbol):
                     important_nodes.append(each)
@@ -466,14 +466,14 @@ class FiniteAutomata:
 
 class Z(FiniteAutomata):
     def __init__(self, expression):
-        transition = Transition()
+        transition = Delta()
 
         state = 0
         for i, z in enumerate(expression):
             transition.add("z" + str(state), "z" + str(state + 1), z)
             state += 1
             if i < len(expression) - 1:
-                transition.add("z" + str(state), "z" + str(state + 1), Transition.EPSILON)
+                transition.add("z" + str(state), "z" + str(state + 1), NullTransition.SYMBOL)
                 state += 1
 
         initial = "z0"

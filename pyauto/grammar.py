@@ -44,7 +44,7 @@ class Grammar:
                         non_terminal_left.append(g.nodes[left]["non_terminal"])
 
                     if node in automata.final:
-                        grammar.add("S", Transition.EPSILON)
+                        grammar.add("S", NullTransition.SYMBOL)
 
                 else:
                     non_terminal_left = [g.nodes[left]["non_terminal"]]
@@ -143,7 +143,7 @@ class Grammar:
 
         states_map[self.start], states_map[final] = initial, final
 
-        transition = Transition()
+        transition = Delta()
         for n in self.rules:
             state = states_map[n]
             for r in self.rules[n]:
@@ -163,6 +163,6 @@ class Grammar:
         while any(map(lambda s: s in self.non_terminal, string)):
             string = self._run_random_rule(string, length)
 
-        if string == Transition.EPSILON:
+        if string == NullTransition.SYMBOL:
             return ""
         return string

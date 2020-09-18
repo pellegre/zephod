@@ -77,12 +77,12 @@ class Buffer(Input):
 
 # --------------------------------------------------------------------
 #
-# consumer
+# transitions
 #
 # --------------------------------------------------------------------
 
 
-class Consumer:
+class Transition:
     def __init__(self, source, target):
         self.source = State(source)
         self.target = State(target)
@@ -98,8 +98,11 @@ class Consumer:
 
         return tape
 
+    def symbol(self):
+        raise RuntimeError("symbol not implemented")
 
-class CharConsumer(Consumer):
+
+class CharTransition(Transition):
     def __init__(self, character, **kwargs):
         self.character = character
         super().__init__(**kwargs)
@@ -110,18 +113,26 @@ class CharConsumer(Consumer):
         else:
             tape.error = True
 
+    def symbol(self):
+        return self.character
 
-class NullConsumer(Consumer):
+
+class NullTransition(Transition):
+    SYMBOL = "$"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def _consume(self, tape):
         tape.read(self.target, 0)
 
+    def symbol(self):
+        return NullTransition.SYMBOL
+
 
 # --------------------------------------------------------------------
 #
-# delta transition function
+# state
 #
 # --------------------------------------------------------------------
 
@@ -154,14 +165,18 @@ class State:
     def __repr__(self):
         return self.__str__()
 
+# --------------------------------------------------------------------
+#
+# delta transition function
+#
+# --------------------------------------------------------------------
 
-class Transition:
-    EPSILON = "$"
 
+class Delta:
     def __init__(self):
         self.states = set()
-        self.alphabet = {Transition.EPSILON}
-        self.delta, self.consumers = {}, {}
+        self.alphabet = {NullTransition.SYMBOL}
+        self.delta, self.transitions = {}, {}
 
     def add(self, ei, ef, symbols):
         assertion = [isinstance(s, str) for s in symbols]
@@ -175,7 +190,7 @@ class Transition:
 
         if source not in self.delta:
             self.delta[source] = {}
-            self.consumers[source] = []
+            self.transitions[source] = []
 
         for s in symbols:
             if s not in self.delta[source]:
@@ -183,10 +198,10 @@ class Transition:
 
             self.delta[source][s].add(target)
 
-            if s == Transition.EPSILON:
-                self.consumers[source].append(NullConsumer(source=source, target=target))
+            if s == NullTransition.SYMBOL:
+                self.transitions[source].append(NullTransition(source=source, target=target))
             else:
-                self.consumers[source].append(CharConsumer(character=s, source=source, target=target))
+                self.transitions[source].append(CharTransition(character=s, source=source, target=target))
 
     def join(self, other):
         for ei in other.delta:
@@ -195,12 +210,12 @@ class Transition:
                     self.add(ei, ef, symbol)
 
     def __call__(self, tape):
-        if tape.state() not in self.consumers:
+        if tape.state() not in self.transitions:
             parsed = tape.copy()
             parsed.error = True
             return {parsed}
         else:
-            consumers = self.consumers[tape.state()]
+            consumers = self.transitions[tape.state()]
 
             parsed = set()
             for consumer in consumers:
@@ -222,7 +237,7 @@ class Transition:
         return max(self.states, key=lambda e: e.number)
 
     def rebase(self, base):
-        transition = Transition()
+        transition = Delta()
 
         for ei in self.delta:
             new_ei = ei.prefix + str(ei.number + base)

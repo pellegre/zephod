@@ -6,7 +6,7 @@ import copy
 
 
 def test_case_1(inp, plot=False, run_grammar=False):
-    transition = Transition()
+    transition = Delta()
     transition.add("e0", "e1", {"0"})
     transition.add("e0", "e2", {"1"})
     transition.add("e1", "e2", {"1"})
@@ -20,7 +20,7 @@ def test_case_1(inp, plot=False, run_grammar=False):
 
     dfsm_value = dfsm.read(inp)
 
-    transition = Transition()
+    transition = Delta()
     transition.add("e0", "e0", {"0", "1"})
     transition.add("e0", "e1", {"1"})
     transition.add("e0", "e3", {"0"})
@@ -59,12 +59,12 @@ def test_case_1(inp, plot=False, run_grammar=False):
 
 
 def test_case_2(inp, plot=False, run_grammar=False):
-    transition = Transition()
+    transition = Delta()
     transition.add("s0", "s0", {"a"})
-    transition.add("s0", "s2", {"$"})
+    transition.add("s0", "s2", {NullTransition.SYMBOL})
     transition.add("s1", "s2", {"a", "b"})
     transition.add("s2", "s0", {"a"})
-    transition.add("s2", "s1", {"$"})
+    transition.add("s2", "s1", {NullTransition.SYMBOL})
 
     nfsm = FiniteAutomata(transition, "s0", {"s1"})
     assert nfsm.has_null_transitions()
@@ -308,7 +308,7 @@ def test_case_10(inp, plot=False, run_grammar=False):
 
 
 def test_case_11(inp, plot=False, run_grammar=False):
-    transition = Transition()
+    transition = Delta()
     transition.add("e0", "e0", {"0", "1"})
     transition.add("e0", "e1", {"1"})
     transition.add("e0", "e3", {"0"})
@@ -342,7 +342,7 @@ def test_case_11(inp, plot=False, run_grammar=False):
 
 
 def test_case_12(inp, plot=False, run_grammar=False):
-    transition = Transition()
+    transition = Delta()
     transition.add("e0", "e0", {"0", "1"})
     transition.add("e0", "e1", {"1"})
     transition.add("e0", "e3", {"0"})
@@ -494,7 +494,7 @@ def test_buffer():
     assert len(buffer.states) == len(buffer.data()) // 2 + 1
     assert len(buffer.pointers) == len(buffer.data()) // 2 + 1
 
-    transition = Transition()
+    transition = Delta()
     transition.add("e0", "e0", {"0", "1"})
     transition.add("e0", "e1", {"1"})
     transition.add("e0", "e3", {"0"})

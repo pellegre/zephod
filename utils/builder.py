@@ -211,7 +211,7 @@ class FiniteAutomataBuilder:
     def get_finite_automata_from_frame(frame):
         all_states = set(frame["states"].values)
 
-        transition = Transition()
+        transition = Delta()
         final_states, initial_state = set(), None
         for row in range(len(frame)):
             from_state = frame.iloc[row]["states"]
