@@ -1,9 +1,65 @@
 import random
+import copy
+import networkx
+
 
 from pyauto.fsm import *
 
 
 class Grammar:
+    @staticmethod
+    def _get_non_terminal_from_counter(counter):
+        return chr((counter - ord('A') - 1) % (ord('R') - ord('A') + 1) + ord('A'))
+
+    @staticmethod
+    def build_from_finite_automata(automata):
+        if automata.has_null_transitions():
+            raise RuntimeError("can't build from automata with null transitions")
+
+        g, counter = copy.deepcopy(automata.g), ord('R') + 1
+        for node in g.nodes:
+            if node == automata.initial:
+                if len(g.in_edges(node)) > 0:
+                    networkx.set_node_attributes(g, {node: Grammar._get_non_terminal_from_counter(counter)},
+                                                 "non_terminal")
+                    counter -= 1
+            elif node in automata.final:
+                if len(g.out_edges(node)) > 0:
+                    networkx.set_node_attributes(g, {node: Grammar._get_non_terminal_from_counter(counter)},
+                                                 "non_terminal")
+                    counter -= 1
+            else:
+                networkx.set_node_attributes(g, {node: Grammar._get_non_terminal_from_counter(counter)}, "non_terminal")
+                counter -= 1
+
+        non_terminal = set(networkx.get_node_attributes(g, "non_terminal").values())
+        grammar = Grammar(non_terminal=non_terminal, terminal=automata.transition.alphabet)
+        for node in g.nodes:
+            for edge in g.out_edges(node):
+                left, right = edge[0], edge[1]
+                symbol = g.get_edge_data(left, right)["symbol"]
+
+                if node == automata.initial:
+                    non_terminal_left = ["S"]
+                    if "non_terminal" in g.nodes[left]:
+                        non_terminal_left.append(g.nodes[left]["non_terminal"])
+                else:
+                    non_terminal_left = [g.nodes[left]["non_terminal"]]
+
+                if right in automata.final:
+                    for s in symbol:
+                        for each in non_terminal_left:
+                            grammar.add(each, s)
+
+                if "non_terminal" in g.nodes[right]:
+                    non_terminal_right = g.nodes[right]["non_terminal"]
+
+                    for s in symbol:
+                        for each in non_terminal_left:
+                            grammar.add(each, s + non_terminal_right)
+
+        return grammar
+
     def __init__(self, terminal, non_terminal, start="S"):
         self.terminal, self.non_terminal = terminal, non_terminal
         self.start, self.rules = start, {}
@@ -40,6 +96,7 @@ class Grammar:
 
     def _sanity_check(self):
         assert self.start in self.rules
+        assert all(map(lambda n: n in self.rules.keys(), self.non_terminal))
 
     def add(self, left, right):
         assert self.start not in right
@@ -95,6 +152,8 @@ class Grammar:
         return FiniteAutomata(transition, initial, {final})
 
     def __call__(self, length=1):
+        self._sanity_check()
+
         rule = random.randint(0, len(self.rules[self.start]) - 1)
         string = self.rules[self.start][rule]
 

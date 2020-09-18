@@ -5,7 +5,7 @@ from pyauto.grammar import *
 import copy
 
 
-def test_case_1(inp, plot=False):
+def test_case_1(inp, plot=False, run_grammar=False):
     transition = Transition()
     transition.add("e0", "e1", {"0"})
     transition.add("e0", "e2", {"1"})
@@ -44,6 +44,13 @@ def test_case_1(inp, plot=False):
     minimized = nfsm.get_deterministic_automata().minimize_automata()
     assert minimized.read(inp) == nfsm_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(nfsm)
         AutomataPlotter.plot(minimized)
@@ -51,7 +58,7 @@ def test_case_1(inp, plot=False):
     return rebased_nfsm_value
 
 
-def test_case_2(inp, plot=False):
+def test_case_2(inp, plot=False, run_grammar=False):
     transition = Transition()
     transition.add("s0", "s0", {"a"})
     transition.add("s0", "s2", {"$"})
@@ -72,6 +79,13 @@ def test_case_2(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == nfsm_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(stripped)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(nfsm)
         AutomataPlotter.plot(dfsm)
@@ -81,7 +95,7 @@ def test_case_2(inp, plot=False):
     return nfsm_value
 
 
-def test_case_3(inp, plot=False):
+def test_case_3(inp, plot=False, run_grammar=False):
     expr = (Z("1") + Z("10")) | ~Z("01")
     assert expr.has_null_transitions()
 
@@ -93,7 +107,7 @@ def test_case_3(inp, plot=False):
     return expr_value
 
 
-def test_case_4(inp, plot=False):
+def test_case_4(inp, plot=False, run_grammar=False):
     expr = Z("00") + (~Z("0") | Z("1"))
     assert expr.has_null_transitions()
 
@@ -105,7 +119,7 @@ def test_case_4(inp, plot=False):
     return expr_value
 
 
-def test_case_5(inp, plot=False):
+def test_case_5(inp, plot=False, run_grammar=False):
     expr = FiniteAutomataBuilder.get_finite_automata_from_csv("./csv/zuto.csv")
     assert not expr.has_null_transitions()
 
@@ -117,13 +131,20 @@ def test_case_5(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(expr)
 
     return expr_value
 
 
-def test_case_6(inp, plot=False):
+def test_case_6(inp, plot=False, run_grammar=False):
     unit = Unit(alphabet={"a", "b", "c", "d"},
                 constraints=[Odd(pattern="b"), Even(pattern="d"), NotContained("addc")],
                 name="w")
@@ -139,13 +160,20 @@ def test_case_6(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(expr)
 
     return expr_value
 
 
-def test_case_7(inp, plot=False):
+def test_case_7(inp, plot=False, run_grammar=False):
     unit = Unit(alphabet={"a", "b", "c", "d"},
                 constraints=[Odd(pattern="b"), NotContained("adc")],
                 name="w")
@@ -162,13 +190,20 @@ def test_case_7(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(expr)
 
     return expr_value
 
 
-def test_case_8(inp, plot=False):
+def test_case_8(inp, plot=False, run_grammar=False):
     unit_1 = Unit(alphabet={"a", "b"},
                   constraints=[Even(pattern="b")],
                   name="x")
@@ -199,13 +234,20 @@ def test_case_8(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(expr)
 
     return expr_value
 
 
-def test_case_9(inp, plot=False):
+def test_case_9(inp, plot=False, run_grammar=False):
     expr = Z("00") + (~Z("0") | Z("1"))
     assert expr.has_null_transitions()
 
@@ -218,6 +260,13 @@ def test_case_9(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(dfsm)
         AutomataPlotter.plot(minimized)
@@ -225,7 +274,7 @@ def test_case_9(inp, plot=False):
     return expr_value
 
 
-def test_case_10(inp, plot=False):
+def test_case_10(inp, plot=False, run_grammar=False):
     unit = Unit(alphabet={"0", "1"},
                   constraints=[NotContained(pattern="11"), NotEnd("00")],
                   name="x")
@@ -243,6 +292,13 @@ def test_case_10(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(expr)
         AutomataPlotter.plot(stripped)
@@ -251,7 +307,7 @@ def test_case_10(inp, plot=False):
     return expr_value
 
 
-def test_case_11(inp, plot=False):
+def test_case_11(inp, plot=False, run_grammar=False):
     transition = Transition()
     transition.add("e0", "e0", {"0", "1"})
     transition.add("e0", "e1", {"1"})
@@ -264,6 +320,14 @@ def test_case_11(inp, plot=False):
     transition.add("e4", "e4", {"0", "1"})
 
     nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
+
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert nfsm.read(grammar_from_fda(length=j))
+
     assert not nfsm.has_null_transitions()
     dfsm = nfsm.get_deterministic_automata()
 
@@ -277,7 +341,7 @@ def test_case_11(inp, plot=False):
     return expr_value
 
 
-def test_case_12(inp, plot=False):
+def test_case_12(inp, plot=False, run_grammar=False):
     transition = Transition()
     transition.add("e0", "e0", {"0", "1"})
     transition.add("e0", "e1", {"1"})
@@ -300,13 +364,20 @@ def test_case_12(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(minimized)
 
     return expr_value
 
 
-def test_case_13(inp, plot=False):
+def test_case_13(inp, plot=False, run_grammar=False):
     expr = (~(Z("aa") + Z("b")) | (Z("c") + Z("d")) | ~Z("cd"))
     assert expr.has_null_transitions()
 
@@ -319,6 +390,13 @@ def test_case_13(inp, plot=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    if run_grammar:
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+
+        for i in range(500):
+            for j in [1, 5, 10, 20, 30]:
+                assert minimized.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(expr)
         AutomataPlotter.plot(stripped)
@@ -328,7 +406,7 @@ def test_case_13(inp, plot=False):
     return expr_value
 
 
-def test_case_14(plot=False):
+def test_case_14(plot=False, run_grammar=False):
     g = Grammar(terminal={"0", "1"}, non_terminal={"A", "B", "C"})
 
     g.add("S", "0A")
@@ -350,12 +428,18 @@ def test_case_14(plot=False):
         for j in [1, 5, 10, 20, 30]:
             assert fda.read(g(length=j))
 
+    grammar_from_fda = Grammar.build_from_finite_automata(fda)
+
+    for i in range(500):
+        for j in [1, 5, 10, 20, 30]:
+            assert fda.read(grammar_from_fda(length=j))
+
     if plot:
         AutomataPlotter.plot(fda)
 
 
 def run_cases():
-    assert test_case_1("00111011110")
+    assert test_case_1("00111011110", run_grammar=True)
     assert test_case_1("00")
     assert test_case_1("11")
     assert test_case_1("001110011010")
@@ -365,27 +449,27 @@ def run_cases():
     assert not test_case_1("1")
     assert not test_case_1("0")
 
-    assert test_case_2("")
+    assert test_case_2("", run_grammar=True)
     assert test_case_2("ababa")
     assert test_case_2("aa")
     assert test_case_2("bb")
     assert test_case_2("b")
     assert test_case_2("a")
 
-    assert test_case_3("10010101")
+    assert test_case_3("10010101", run_grammar=True)
     assert not test_case_3("1110010101")
     assert test_case_3("10010101")
     assert test_case_3("1")
     assert test_case_3("10010101")
     assert not test_case_3("010101")
 
-    assert test_case_4("1")
+    assert test_case_4("1", run_grammar=True)
     assert test_case_4("00")
     assert test_case_4("00001")
     assert test_case_4("0000001")
     assert not test_case_4("1111")
 
-    assert test_case_5("badddcbdb")
+    assert test_case_5("badddcbdb", run_grammar=True)
     assert test_case_5("ddb")
     assert test_case_5("ddddb")
     assert test_case_5("b")
@@ -400,7 +484,7 @@ def run_cases():
     assert not test_case_5("baddcdd")
     assert test_case_5("bddcdd")
 
-    assert test_case_6("badddcbdb")
+    assert test_case_6("badddcbdb", run_grammar=True)
     assert test_case_6("ddb")
     assert test_case_6("ddddb")
     assert test_case_6("b")
@@ -415,7 +499,7 @@ def run_cases():
     assert not test_case_6("baddcdd")
     assert test_case_6("bddcdd")
 
-    assert test_case_7("abbbad")
+    assert test_case_7("abbbad", run_grammar=True)
     assert test_case_7("b")
     assert test_case_7("abbb")
     assert test_case_7("abbbbbcdcd")
@@ -425,13 +509,13 @@ def run_cases():
     assert not test_case_7("bbbadc")
     assert not test_case_7("bbbbbadc")
 
-    assert test_case_9("1")
+    assert test_case_9("1", run_grammar=True)
     assert test_case_9("00")
     assert test_case_9("00001")
     assert test_case_9("0000001")
     assert not test_case_9("1111")
 
-    assert test_case_10("aa01000101010101c")
+    assert test_case_10("aa01000101010101c", run_grammar=True)
     assert test_case_10("aa010001010101010c")
     assert test_case_10("aa010001010101010cccccc")
     assert test_case_10("aaaa0100010cccc")
@@ -439,7 +523,7 @@ def run_cases():
     assert not test_case_10("aaaaa010001cccc")
     assert not test_case_10("aaaa0110001cccc")
 
-    assert test_case_11("00111011110")
+    assert test_case_11("00111011110", run_grammar=True)
     assert test_case_11("00")
     assert test_case_11("11")
     assert test_case_11("001110011010")
@@ -449,7 +533,7 @@ def run_cases():
     assert not test_case_11("1")
     assert not test_case_11("0")
 
-    assert test_case_12("00111011110")
+    assert test_case_12("00111011110", run_grammar=True)
     assert test_case_12("00")
     assert test_case_12("11")
     assert test_case_12("001110011010")
@@ -459,7 +543,7 @@ def run_cases():
     assert not test_case_12("1")
     assert not test_case_12("0")
 
-    assert test_case_13("c")
+    assert test_case_13("c", run_grammar=True)
     assert test_case_13("d")
     assert test_case_13("ccd")
     assert test_case_13("aaccd")
@@ -474,5 +558,5 @@ def run_cases():
 if __name__ == '__main__':
     print("[+] FD ")
 
-    # run_cases()
+    run_cases()
     # print(test_case_13("c", True))
