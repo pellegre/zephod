@@ -1,5 +1,7 @@
 import random
 
+from pyauto.fsm import *
+
 
 class Grammar:
     def __init__(self, terminal, non_terminal, start="S"):
@@ -25,7 +27,7 @@ class Grammar:
         left = rules[random.randint(0, len(rules) - 1)]
 
         i = string.find(left)
-        while i < 0 :
+        while i < 0:
             left = rules[random.randint(0, len(rules) - 1)]
             i = string.find(left)
 
@@ -70,6 +72,27 @@ class Grammar:
         is_context_free = all(map(lambda s: s in self.non_terminal or s == self.start and len(s) == 1, self.rules))
 
         return is_context_free and not self.is_regular()
+
+    def get_finite_automata(self):
+        if not self.is_regular():
+            raise RuntimeError("can't build FDA from the current rules")
+
+        initial = "z0"
+        states_map = {n: "z" + str(i + 1) for i, n in enumerate(self.non_terminal)}
+        final = "z" + str(len(self.non_terminal) + 1)
+
+        states_map[self.start], states_map[final] = initial, final
+
+        transition = Transition()
+        for n in self.rules:
+            state = states_map[n]
+            for r in self.rules[n]:
+                if len(r) == 1:
+                    transition.add(state, final, r)
+                elif len(r) == 2:
+                    transition.add(state, states_map[r[1]], r[0])
+
+        return FiniteAutomata(transition, initial, {final})
 
     def __call__(self, length=1):
         rule = random.randint(0, len(self.rules[self.start]) - 1)

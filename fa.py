@@ -328,7 +328,7 @@ def test_case_13(inp, plot=False):
     return expr_value
 
 
-def test_case_14():
+def test_case_14(plot=False):
     g = Grammar(terminal={"0", "1"}, non_terminal={"A", "B", "C"})
 
     g.add("S", "0A")
@@ -344,19 +344,14 @@ def test_case_14():
     g.add("C", "1C")
     g.add("C", "0")
 
-    print(g)
-    print(g.is_regular())
-    print(g(length=25))
+    fda = g.get_finite_automata()
 
-    g = Grammar(terminal={"a", "b", "c"}, non_terminal={"A", "B", "C"})
-    g.add("S", "A")
-    g.add("A", "aAa")
-    g.add("A", "bAb")
-    g.add("A", "c")
+    for i in range(500):
+        for j in [1, 5, 10, 20, 30]:
+            assert fda.read(g(length=j))
 
-    print(g)
-    print(g.is_context_free())
-    print(g(length=25))
+    if plot:
+        AutomataPlotter.plot(fda)
 
 
 def run_cases():
@@ -473,10 +468,11 @@ def run_cases():
     assert not test_case_13("aaaccdc")
     assert not test_case_13("")
 
+    test_case_14()
+
 
 if __name__ == '__main__':
     print("[+] FD ")
-    test_case_14()
 
     # run_cases()
     # print(test_case_13("c", True))
