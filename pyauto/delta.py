@@ -95,7 +95,7 @@ class Consumer:
 
     def __call__(self, tape):
         if tape.state() == self.source:
-            tape.done = not self._consume(tape)
+            self._consume(tape)
         else:
             tape.done = True
 
@@ -110,9 +110,8 @@ class CharConsumer(Consumer):
     def _consume(self, tape):
         if len(tape.head()) and tape.head()[0] == self.character:
             tape.read(self.target, 1)
-            return True
-
-        return False
+        else:
+            tape.done = True
 
 
 class NullConsumer(Consumer):
@@ -121,7 +120,6 @@ class NullConsumer(Consumer):
 
     def _consume(self, tape):
         tape.read(self.target, 0)
-        return True
 
 
 # --------------------------------------------------------------------
