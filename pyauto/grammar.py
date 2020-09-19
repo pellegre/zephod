@@ -143,7 +143,7 @@ class Grammar:
 
         states_map[self.start], states_map[final] = initial, final
 
-        transition = Delta()
+        transition = FADelta()
         for n in self.rules:
             state = states_map[n]
             for r in self.rules[n]:

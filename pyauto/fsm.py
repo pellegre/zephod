@@ -7,6 +7,30 @@ import math
 import copy
 
 
+class FADelta(Delta):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _update_alphabet(self, symbols):
+        self.alphabet.update(symbols)
+
+    def _add_transition(self, source, target, symbols):
+        if source not in self.transitions:
+            self.transitions[source] = []
+
+        transition_symbols = []
+        for s in symbols:
+            if s == NullTransition.SYMBOL:
+                transition = NullTransition(source=source, target=target)
+                self.transitions[source].append(transition)
+            else:
+                transition = CharTransition(character=s, source=source, target=target)
+                self.transitions[source].append(transition)
+            transition_symbols.append(transition.symbol())
+
+        return transition_symbols
+
+
 class FiniteAutomata:
     class NodeType:
         INITIAL = "initial"
@@ -50,7 +74,7 @@ class FiniteAutomata:
         this = self.rebase(1)
         other = p.rebase(this.transition.max_state().number + 1)
 
-        transition = Delta()
+        transition = FADelta()
         transition.join(this.transition)
         transition.join(other.transition)
 
@@ -69,7 +93,7 @@ class FiniteAutomata:
         this = self.rebase(1)
         final = self.initial.prefix + str(this.transition.max_state().number + 1)
 
-        transition = Delta()
+        transition = FADelta()
         transition.join(this.transition)
         transition.add(self.initial, this.initial, NullTransition.SYMBOL)
         transition.add(self.initial, final, NullTransition.SYMBOL)
@@ -84,7 +108,7 @@ class FiniteAutomata:
     def __or__(self, p):
         other = p.rebase(self.transition.max_state().number + 1)
 
-        transition = Delta()
+        transition = FADelta()
         transition.join(self.transition)
         transition.join(other.transition)
 
@@ -218,7 +242,7 @@ class FiniteAutomata:
 
         assert initial
 
-        transition = Delta()
+        transition = FADelta()
         for state in delta:
             for symbol in delta[state]:
                 group = set(delta[state][symbol])
@@ -244,7 +268,7 @@ class FiniteAutomata:
         for i, each in enumerate(self.state_power_set):
             states_map[each] = prefix + str(i)
 
-        transition, final = Delta(), set()
+        transition, final = FADelta(), set()
         for each in self.state_power_set:
             for symbol in self.state_power_set[each]:
                 states = self.state_power_set[each][symbol]
@@ -296,7 +320,7 @@ class FiniteAutomata:
                 if state in final:
                     final.remove(state)
 
-        transition = Delta()
+        transition = FADelta()
         for edge in g.edges:
             for symbol in self._get_symbol_from_edge(g, edge):
                 transition.add(edge[0], edge[1], symbol)
@@ -466,7 +490,7 @@ class FiniteAutomata:
 
 class Z(FiniteAutomata):
     def __init__(self, expression):
-        transition = Delta()
+        transition = FADelta()
 
         state = 0
         for i, z in enumerate(expression):

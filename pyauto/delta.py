@@ -178,6 +178,12 @@ class Delta:
         self.alphabet = {NullTransition.SYMBOL}
         self.delta, self.transitions = {}, {}
 
+    def _update_alphabet(self, symbols):
+        raise RuntimeError("_update_alphabet not implemented")
+
+    def _add_transition(self, source, target, symbols):
+        raise RuntimeError("_add_transition not implemented")
+
     def add(self, ei, ef, symbols):
         assertion = [isinstance(s, str) for s in symbols]
         assert sum(assertion) == len(assertion)
@@ -186,22 +192,19 @@ class Delta:
 
         self.states.add(source)
         self.states.add(target)
-        self.alphabet.update(symbols)
+
+        self._update_alphabet(symbols)
+
+        transition_symbols = self._add_transition(source, target, symbols)
 
         if source not in self.delta:
             self.delta[source] = {}
-            self.transitions[source] = []
 
-        for s in symbols:
+        for s in transition_symbols:
             if s not in self.delta[source]:
                 self.delta[source][s] = set()
 
             self.delta[source][s].add(target)
-
-            if s == NullTransition.SYMBOL:
-                self.transitions[source].append(NullTransition(source=source, target=target))
-            else:
-                self.transitions[source].append(CharTransition(character=s, source=source, target=target))
 
     def join(self, other):
         for ei in other.delta:
@@ -237,7 +240,7 @@ class Delta:
         return max(self.states, key=lambda e: e.number)
 
     def rebase(self, base):
-        transition = Delta()
+        transition = type(self)()
 
         for ei in self.delta:
             new_ei = ei.prefix + str(ei.number + base)
