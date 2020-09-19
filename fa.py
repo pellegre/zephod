@@ -1,6 +1,7 @@
-from pyauto.fsm import *
+from pyauto.finite_automata import *
 from utils.builder import *
 from pyauto.grammar import *
+from pyauto.language import *
 
 import copy
 
@@ -144,109 +145,6 @@ def test_case_5(inp, plot=False, run_grammar=False):
     return expr_value
 
 
-def test_case_6(inp, plot=False, run_grammar=False):
-    unit = Unit(alphabet={"a", "b", "c", "d"},
-                constraints=[Odd(pattern="b"), Even(pattern="d"), NotContained("addc")],
-                name="w")
-
-    expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
-    assert not expr.has_null_transitions()
-
-    expr_value = expr.read(inp)
-
-    dfsm = expr.get_deterministic_automata()
-    assert not dfsm.is_non_deterministic()
-
-    minimized = dfsm.minimize_automata()
-    assert minimized.read(inp) == expr_value
-
-    if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
-
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
-
-    if plot:
-        AutomataPlotter.plot(expr)
-
-    return expr_value
-
-
-def test_case_7(inp, plot=False, run_grammar=False):
-    unit = Unit(alphabet={"a", "b", "c", "d"},
-                constraints=[Odd(pattern="b"), NotContained("adc")],
-                name="w")
-
-    # print(unit.get_frame(total=True))
-    expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
-    assert not expr.has_null_transitions()
-
-    expr_value = expr.read(inp)
-
-    dfsm = expr.get_deterministic_automata()
-    assert not dfsm.is_non_deterministic()
-
-    minimized = dfsm.minimize_automata()
-    assert minimized.read(inp) == expr_value
-
-    if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
-
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
-
-    if plot:
-        AutomataPlotter.plot(expr)
-
-    return expr_value
-
-
-def test_case_8(inp, plot=False, run_grammar=False):
-    unit_1 = Unit(alphabet={"a", "b"},
-                  constraints=[Even(pattern="b")],
-                  name="x")
-    expr_1 = FiniteAutomataBuilder.get_finite_automata_from_unit(unit_1)
-
-    unit_2 = Unit(alphabet={"a", "c"},
-                  constraints=[Odd(pattern="c"), NotContained("aac")],
-                  name="w")
-    expr_2 = FiniteAutomataBuilder.get_finite_automata_from_unit(unit_2)
-
-    unit_3 = unit_1 | unit_2
-    expr_3 = FiniteAutomataBuilder.get_finite_automata_from_unit(unit_3)
-
-    print(unit_1.get_frame(total=True))
-    print(unit_2.get_frame(total=True))
-    print(unit_3.get_frame(total=True))
-
-    print(expr_3.read("bbc"))
-
-    expr = (expr_1 | expr_2).remove_null_transitions()
-    assert not expr.has_null_transitions()
-
-    expr_value = expr.read(inp)
-
-    dfsm = expr.get_deterministic_automata()
-    assert not dfsm.is_non_deterministic()
-
-    minimized = dfsm.minimize_automata()
-    assert minimized.read(inp) == expr_value
-
-    if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
-
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
-
-    if plot:
-        AutomataPlotter.plot(expr)
-
-    return expr_value
-
-
 def test_case_9(inp, plot=False, run_grammar=False):
     expr = Z("00") + (~Z("0") | Z("1"))
     assert expr.has_null_transitions()
@@ -269,39 +167,6 @@ def test_case_9(inp, plot=False, run_grammar=False):
 
     if plot:
         AutomataPlotter.plot(dfsm)
-        AutomataPlotter.plot(minimized)
-
-    return expr_value
-
-
-def test_case_10(inp, plot=False, run_grammar=False):
-    unit = Unit(alphabet={"0", "1"},
-                  constraints=[NotContained(pattern="11"), NotEnd("00")],
-                  name="x")
-    expr = FiniteAutomataBuilder.get_finite_automata_from_unit(unit)
-
-    expr = ~Z("aa") | expr | ~Z("c")
-    assert expr.has_null_transitions()
-
-    stripped = expr.remove_null_transitions()
-    expr_value = stripped.read(inp)
-
-    dfsm = stripped.get_deterministic_automata()
-    assert not dfsm.is_non_deterministic()
-
-    minimized = dfsm.minimize_automata()
-    assert minimized.read(inp) == expr_value
-
-    if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
-
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
-
-    if plot:
-        AutomataPlotter.plot(expr)
-        AutomataPlotter.plot(stripped)
         AutomataPlotter.plot(minimized)
 
     return expr_value
@@ -438,18 +303,18 @@ def test_case_14(plot=False, run_grammar=False):
         AutomataPlotter.plot(fda)
 
 
-def test_case_15(inp, plot=False, run_grammar=False):
+def test_case_15(plot=False):
     expr = (~(Z("aa") + Z("b")) | ~Z("cd"))
     assert expr.has_null_transitions()
 
     stripped = expr.remove_null_transitions()
-    expr_value = stripped.read(inp)
+    expr_value = stripped.read("")
 
     dfsm = stripped.get_deterministic_automata()
     assert not dfsm.is_non_deterministic()
 
     minimized = dfsm.minimize_automata()
-    assert minimized.read(inp) == expr_value
+    assert minimized.read("") == expr_value
 
     grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
@@ -545,6 +410,142 @@ def test_case_16():
             assert fda.read(s)
 
 
+def test_constraints():
+    contained = ContainedRule(pattern="acb", closure={"a", "b", "c", "d"}).compile()
+
+    assert contained("read_a_1", "c") == State("read_c_2")
+    assert contained("read_c_2", "b") == State("read_acb_3")
+    assert contained("read_acb_3", "d") == State("read_acb_3")
+
+    assert contained("read_c_2", "d") == State("read_none_0")
+    assert contained("read_c_2", "a") == State("read_none_0")
+
+    not_contained = NotContainedRule(pattern="acb", closure={"a", "b", "c", "d"}).compile()
+
+    assert not_contained("read_none_0", "a") == State("read_a_1")
+    assert not_contained("read_a_1", "c") == State("read_c_2")
+    assert not_contained("read_c_2", "b") == ErrorState()
+
+    assert not_contained("read_c_2", "a") == State("read_none_0")
+    assert not_contained("read_c_2", "c") == State("read_none_0")
+    assert not_contained("read_c_2", "d") == State("read_none_0")
+
+    even = EvenRule(pattern="ab", closure={"a", "b", "c", "d"}).compile()
+
+    assert even("read_even_ab_0", "a") == State("read_even_a_1")
+    assert even("read_even_a_1", "b") == State("read_odd_ab_0")
+    assert even("read_odd_ab_0", "a") == State("read_odd_a_1")
+    assert even("read_odd_a_1", "b") == State("read_even_ab_0")
+
+    assert even("read_even_a_1", "a") == State("read_even_ab_0")
+    assert even("read_odd_a_1", "a") == State("read_odd_ab_0")
+
+    assert even("read_even_ab_0", "b") == State("read_even_ab_0")
+    assert even("read_odd_ab_0", "b") == State("read_odd_ab_0")
+
+    odd = OddRule(pattern="ab", closure={"a", "b", "c", "d"}).compile()
+
+    assert odd("read_even_ab_0", "a") == State("read_even_a_1")
+    assert odd("read_even_a_1", "b") == State("read_odd_ab_0")
+    assert odd("read_odd_ab_0", "a") == State("read_odd_a_1")
+    assert odd("read_odd_a_1", "b") == State("read_even_ab_0")
+
+    assert odd("read_even_a_1", "a") == State("read_even_ab_0")
+    assert odd("read_odd_a_1", "a") == State("read_odd_ab_0")
+
+    assert odd("read_even_ab_0", "b") == State("read_even_ab_0")
+    assert odd("read_odd_ab_0", "b") == State("read_odd_ab_0")
+
+    lang = RegularLanguage(alphabet={"a", "b", "c", "d"},
+                           definition={
+                                   "rules": [
+                                       Even(pattern="d"), Odd(pattern="b"), NotContained(pattern="addc")
+                                   ],
+                                   "closure": {"a", "b", "c", "d"}
+                               })
+
+    assert lang.fda.read("b")
+    assert lang.fda.read("ddb")
+    assert lang.fda.read("ddbbb")
+    assert not lang.fda.read("")
+    assert not lang.fda.read("ddbaddc")
+    assert lang.fda.read("ddbadd")
+    assert lang.fda.read("dadabddbab")
+    assert not lang.fda.read("addc")
+
+    lang = RegularLanguage(alphabet={"a", "b", "c"},
+                           definition={
+                                   "rules": [
+                                       Even(pattern="b"), Odd(pattern="c"),
+                                       NotContained(pattern="aac"), Order(before={"a", "b"}, after={"a", "c"})
+                                   ],
+                                   "closure": {"a", "b", "c"}
+                               })
+
+    assert lang.fda.read("bbc")
+    assert lang.fda.read("c")
+    assert not lang.fda.read("cc")
+    assert lang.fda.read("babaccc")
+    assert not lang.fda.read("babacccbb")
+    assert not lang.fda.read("babaacccbb")
+    assert not lang.fda.read("bb")
+    assert not lang.fda.read("")
+    assert lang.fda.read("bababaaaabbaaaabcacac")
+    assert not lang.fda.read("bababaaaabbaaaabcaacaac")
+
+    lang = RegularLanguage(alphabet={"a", "b", "c"},
+                           definition={
+                                   "rules": [
+                                       Even(pattern="baa"), Odd(pattern="c"),
+                                       NotContained(pattern="aac"), Order(before={"a", "b"}, after={"a", "c"})
+                                   ],
+                                   "closure": {"a", "b", "c"}
+                               })
+
+    assert lang.fda.read("c")
+    assert lang.fda.read("baabaabc")
+    assert not lang.fda.read("baabaac")
+    assert lang.fda.read("baabaabccc")
+    assert lang.fda.read("baaabaaabaabaaabcacac")
+    assert not lang.fda.read("baaabaaabaabaaabcacacb")
+
+    lang = RegularLanguage(alphabet={"a", "b", "c", "d"},
+                           definition={
+                               "rules": [
+                                   Even(pattern="baa"),
+                                   Order(before={"a", "b"}, after={"a", "c"}),
+                                   Odd(pattern="c"), NotContained(pattern="aac"),
+                                   Order(before={"a", "b", "c"}, after={"a", "d"}),
+                                   Odd(pattern="dd"), NotContained(pattern="ad")
+                               ],
+                               "closure": {"a", "b", "c", "d"}
+                           })
+
+    assert lang.fda.read("cdd")
+    assert lang.fda.read("baabaabbbbbcdd")
+    assert lang.fda.read("cccdddddd")
+    assert lang.fda.read("cacacdddddd")
+    assert not lang.fda.read("cacacadddddd")
+    assert not lang.fda.read("cacacaddddddb")
+    assert not lang.fda.read("cacacaddddcdd")
+    assert not lang.fda.read("bacabaabbbbbcdd")
+    assert not lang.fda.read("badabaabbbbbcdd")
+
+    # TODO : fix this case
+    # lang = RegularLanguage(alphabet={"a", "b", "c"},
+    #                        definition={
+    #                                "rules": [
+    #                                    Even(pattern="b"),
+    #                                    Odd(pattern="c"), Odd(pattern="a"),
+    #                                    Order(before={"a", "b"}, after={"a", "c"})
+    #                                ],
+    #                                "closure": {"a", "b", "c"}
+    #                            })
+    #
+    # AutomataPlotter.plot(lang.fda)
+    # assert lang.fda.read("bbca")
+
+
 def run_cases():
     assert test_case_1("00111011110", run_grammar=True)
     assert test_case_1("00")
@@ -591,44 +592,11 @@ def run_cases():
     assert not test_case_5("baddcdd")
     assert test_case_5("bddcdd")
 
-    assert test_case_6("badddcbdb", run_grammar=True)
-    assert test_case_6("ddb")
-    assert test_case_6("ddddb")
-    assert test_case_6("b")
-    assert test_case_6("bdd")
-    assert test_case_6("bbddb")
-    assert test_case_6("bdbdb")
-    assert not test_case_6("")
-    assert not test_case_6("dd")
-    assert not test_case_6("dddb")
-    assert not test_case_6("ddbaddc")
-    assert not test_case_6("baddc")
-    assert not test_case_6("baddcdd")
-    assert test_case_6("bddcdd")
-
-    assert test_case_7("abbbad", run_grammar=True)
-    assert test_case_7("b")
-    assert test_case_7("abbb")
-    assert test_case_7("abbbbbcdcd")
-    assert test_case_7("baddd")
-    assert not test_case_7("badc")
-    assert not test_case_7("")
-    assert not test_case_7("bbbadc")
-    assert not test_case_7("bbbbbadc")
-
     assert test_case_9("1", run_grammar=True)
     assert test_case_9("00")
     assert test_case_9("00001")
     assert test_case_9("0000001")
     assert not test_case_9("1111")
-
-    assert test_case_10("aa01000101010101c", run_grammar=True)
-    assert test_case_10("aa010001010101010c")
-    assert test_case_10("aa010001010101010cccccc")
-    assert test_case_10("aaaa0100010cccc")
-    assert not test_case_10("aaaa01000100cccc")
-    assert not test_case_10("aaaaa010001cccc")
-    assert not test_case_10("aaaa0110001cccc")
 
     assert test_case_11("00111011110", run_grammar=True)
     assert test_case_11("00")
@@ -660,13 +628,16 @@ def run_cases():
     assert not test_case_13("")
 
     test_case_14()
-    test_case_15("")
-
+    test_case_15()
     test_case_16()
+
+    test_constraints()
 
 
 if __name__ == '__main__':
     print("[+] FD ")
 
     run_cases()
+    
+    # run_cases()
     # print(test_case_13("c", True))

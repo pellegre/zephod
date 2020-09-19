@@ -1,4 +1,5 @@
 import re
+import random
 
 # --------------------------------------------------------------------
 #
@@ -102,34 +103,6 @@ class Transition:
         raise RuntimeError("symbol not implemented")
 
 
-class CharTransition(Transition):
-    def __init__(self, character, **kwargs):
-        self.character = character
-        super().__init__(**kwargs)
-
-    def _consume(self, tape):
-        if len(tape.head()) and tape.head()[0] == self.character:
-            tape.read(self.target, 1)
-        else:
-            tape.error = True
-
-    def symbol(self):
-        return self.character
-
-
-class NullTransition(Transition):
-    SYMBOL = "$"
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def _consume(self, tape):
-        tape.read(self.target, 0)
-
-    def symbol(self):
-        return NullTransition.SYMBOL
-
-
 # --------------------------------------------------------------------
 #
 # state
@@ -139,9 +112,12 @@ class NullTransition(Transition):
 class State:
     def __init__(self, state):
         if isinstance(state, str):
-            groups = re.search("([a-zA-Z]+)([0-9]+)", state).groups()
+            groups = re.search("([a-zA-Z_$]*)([0-9]*[$]*)", state).groups()
             self.prefix = groups[0]
-            self.number = int(groups[1])
+            if len(groups[1]):
+                self.number = int(groups[1])
+            else:
+                self.number = random.randint(0, 100)
         else:
             self.prefix = state.prefix
             self.number = state.number
@@ -165,6 +141,12 @@ class State:
     def __repr__(self):
         return self.__str__()
 
+
+class ErrorState(State):
+    def __init__(self):
+        # the devil is in the details
+        super().__init__(state="read_error_696969")
+
 # --------------------------------------------------------------------
 #
 # delta transition function
@@ -175,7 +157,7 @@ class State:
 class Delta:
     def __init__(self):
         self.states = set()
-        self.alphabet = {NullTransition.SYMBOL}
+        self.alphabet = set()
         self.delta, self.transitions = {}, {}
 
     def _add_transition(self, source, target, symbols):

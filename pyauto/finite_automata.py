@@ -6,6 +6,40 @@ import networkx
 import math
 import copy
 
+# --------------------------------------------------------------------
+#
+# transition function
+#
+# --------------------------------------------------------------------
+
+
+class CharTransition(Transition):
+    def __init__(self, character, **kwargs):
+        self.character = character
+        super().__init__(**kwargs)
+
+    def _consume(self, tape):
+        if len(tape.head()) and tape.head()[0] == self.character:
+            tape.read(self.target, 1)
+        else:
+            tape.error = True
+
+    def symbol(self):
+        return self.character
+
+
+class NullTransition(Transition):
+    SYMBOL = "$"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _consume(self, tape):
+        tape.read(self.target, 0)
+
+    def symbol(self):
+        return NullTransition.SYMBOL
+
 
 class FDATransition(Transition):
     def __init__(self, fda, **kwargs):
@@ -215,10 +249,48 @@ class FiniteAutomata:
 
     def minimal(self):
         if self.has_null_transitions():
-            return self.remove_null_transitions().get_deterministic_automata().minimize_automata()
+            return self.remove_null_transitions().get_deterministic_automata().strip_redundant().minimize_automata()
         elif self.is_non_deterministic():
-            return self.get_deterministic_automata().minimize_automata()
-        return self.minimize_automata()
+            return self.get_deterministic_automata().strip_redundant().minimize_automata()
+        return self.strip_redundant().minimize_automata()
+
+    def strip_redundant(self):
+        states_to_remove = set()
+
+        for state in filter(lambda s: s not in self.final, self.g.nodes):
+            reach_final = False
+            for final in self.final:
+                try:
+                    networkx.dijkstra_path(self.g, state, final)
+                    reach_final = True
+                except networkx.exception.NetworkXNoPath:
+                    continue
+
+            if not reach_final:
+                states_to_remove.add(state)
+
+        for state in self.g:
+            try:
+                networkx.dijkstra_path(self.g, self.initial, state)
+            except networkx.exception.NetworkXNoPath:
+                states_to_remove.add(state)
+
+        final = self.final.copy()
+        final = final.difference(states_to_remove)
+
+        transition = FADelta()
+        for state in self.transition.delta:
+
+            if state not in states_to_remove:
+
+                for symbol in self.transition.delta[state]:
+                    target = self.transition.delta[state][symbol]
+
+                    for each in target:
+                        if each not in states_to_remove:
+                            transition.add(state, each, symbol)
+
+        return FiniteAutomata(transition, self.initial, final)
 
     def minimize_automata(self):
         assert not self.has_null_transitions()
@@ -395,6 +467,8 @@ class FiniteAutomata:
 
                 if any(consumed_in_final):
                     final_buffer = buffers[consumed_in_final.index(True)]
+                else:
+                    final_buffer = max(buffers, key=lambda b: b.pointer())
 
                 break
 

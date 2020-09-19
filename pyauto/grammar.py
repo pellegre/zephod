@@ -2,7 +2,7 @@ import random
 import copy
 import networkx
 
-from pyauto.fsm import *
+from pyauto.finite_automata import *
 
 
 class Grammar:
@@ -110,7 +110,8 @@ class Grammar:
                                           s in self.non_terminal or s == self.start, right))
 
         assert sum(left_sanity) == len(left)
-        assert sum(right_sanity) == len(right)
+        if right != NullTransition.SYMBOL:
+            assert sum(right_sanity) == len(right)
 
         if left not in self.rules:
             self.rules[left] = [right]
