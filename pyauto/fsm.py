@@ -7,12 +7,33 @@ import math
 import copy
 
 
+class FDATransition(Transition):
+    def __init__(self, fda, **kwargs):
+        super().__init__(**kwargs)
+        self.fda = fda
+
+    def __call__(self, tape):
+        pointer = tape.pointer()
+
+        buffer = tape.copy()
+        buffer.states = [self.fda.initial]
+        buffer.pointers = [pointer]
+
+        parsed = self.fda(buffer)
+        if parsed.error and parsed.state() in self.fda.final:
+            tape.read(self.target, parsed.pointer() - pointer)
+        else:
+            tape.error = True
+
+        return tape
+
+    def symbol(self):
+        return "FDA" + str(hex(id(self)))
+
+
 class FADelta(Delta):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-    def _update_alphabet(self, symbols):
-        self.alphabet.update(symbols)
 
     def _add_transition(self, source, target, symbols):
         if source not in self.transitions:
@@ -20,13 +41,23 @@ class FADelta(Delta):
 
         transition_symbols = []
         for s in symbols:
-            if s == NullTransition.SYMBOL:
+            if s is NullTransition.SYMBOL:
                 transition = NullTransition(source=source, target=target)
                 self.transitions[source].append(transition)
-            else:
+
+            elif isinstance(s, str) and len(s) == 1:
                 transition = CharTransition(character=s, source=source, target=target)
                 self.transitions[source].append(transition)
+
+            elif isinstance(s, FiniteAutomata):
+                transition = FDATransition(fda=s.minimal(), source=source, target=target)
+                self.transitions[source].append(transition)
+
+            else:
+                raise RuntimeError("can't interpret symbol", s)
+
             transition_symbols.append(transition.symbol())
+            self.alphabet.add(transition.symbol())
 
         return transition_symbols
 
@@ -181,6 +212,13 @@ class FiniteAutomata:
                 delta[symbol][state] = index
 
         return list(groups.values())
+
+    def minimal(self):
+        if self.has_null_transitions():
+            return self.remove_null_transitions().get_deterministic_automata().minimize_automata()
+        elif self.is_non_deterministic():
+            return self.get_deterministic_automata().minimize_automata()
+        return self.minimize_automata()
 
     def minimize_automata(self):
         assert not self.has_null_transitions()
@@ -339,20 +377,29 @@ class FiniteAutomata:
             done_buffer = tape.copy()
             return done_buffer
 
-        buffers, accepted = [tape], None
+        buffers, final_buffer = [tape], None
         while not all(map(lambda b: not len(b.head()) and b.error, buffers)):
             parsed = set()
             for buffer in filter(lambda b: not b.error, buffers):
                 parsed.update(self.transition(buffer))
 
-            buffers = [buffer for buffer in parsed]
+            if len(parsed):
+                buffers = list(parsed)
 
-            consumed_in_final = list(map(lambda b: not len(b.head()) and b.state() in self.final, buffers))
-            if any(consumed_in_final):
-                accepted = buffers[consumed_in_final.index(True)]
+                consumed_in_final = list(map(lambda b: not len(b.head()) and b.state() in self.final, buffers))
+                if any(consumed_in_final):
+                    final_buffer = buffers[consumed_in_final.index(True)]
 
-        if accepted:
-            return accepted
+            else:
+                consumed_in_final = list(map(lambda b: b.state() in self.final, buffers))
+
+                if any(consumed_in_final):
+                    final_buffer = buffers[consumed_in_final.index(True)]
+
+                break
+
+        if final_buffer:
+            return final_buffer
         else:
             done_buffer = tape.copy()
             done_buffer.error = True

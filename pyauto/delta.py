@@ -16,7 +16,7 @@ class Input:
 
     def __str__(self):
         string = "(pointers = " + str(self.pointers) + " , states = " + str(self.states) + ") @ "
-        string += "(done = " + str(self.error) + ") # "
+        string += "(error = " + str(self.error) + ") # "
         if not len(self.head()):
             string += "data = " + str(self.data()) + "\n"
         else:
@@ -178,22 +178,14 @@ class Delta:
         self.alphabet = {NullTransition.SYMBOL}
         self.delta, self.transitions = {}, {}
 
-    def _update_alphabet(self, symbols):
-        raise RuntimeError("_update_alphabet not implemented")
-
     def _add_transition(self, source, target, symbols):
         raise RuntimeError("_add_transition not implemented")
 
     def add(self, ei, ef, symbols):
-        assertion = [isinstance(s, str) for s in symbols]
-        assert sum(assertion) == len(assertion)
-
         source, target = State(ei), State(ef)
 
         self.states.add(source)
         self.states.add(target)
-
-        self._update_alphabet(symbols)
 
         transition_symbols = self._add_transition(source, target, symbols)
 

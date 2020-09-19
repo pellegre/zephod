@@ -527,6 +527,24 @@ def test_buffer():
     assert accepted
 
 
+def test_case_16():
+    expr = (~Z("aaa") | ~Z("bb") | ~Z("cd")).minimal()
+
+    transition = FADelta()
+    transition.add("z0", "z1", {~Z("aaa")})
+    transition.add("z1", "z2", {~Z("bb")})
+    transition.add("z2", "z3", {~Z("cd")})
+
+    fda = FiniteAutomata(transition, initial="z0", final={"z0", "z1", "z2", "z3"})
+
+    grammar_from_fda = Grammar.build_from_finite_automata(expr)
+
+    for i in range(500):
+        for j in [1, 5, 10, 20, 30]:
+            s = grammar_from_fda(length=j)
+            assert fda.read(s)
+
+
 def run_cases():
     assert test_case_1("00111011110", run_grammar=True)
     assert test_case_1("00")
@@ -643,6 +661,8 @@ def run_cases():
 
     test_case_14()
     test_case_15("")
+
+    test_case_16()
 
 
 if __name__ == '__main__':
