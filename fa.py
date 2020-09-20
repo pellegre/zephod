@@ -47,6 +47,10 @@ def test_case_1(inp, plot=False, run_grammar=False):
     minimized = nfsm.get_deterministic_automata().minimize_automata()
     assert minimized.read(inp) == nfsm_value
 
+    pda = dfsm.get_pushdown_automata()
+    pda_value = pda.read(inp)
+    assert pda_value == nfsm_value
+
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
 
@@ -81,6 +85,10 @@ def test_case_2(inp, plot=False, run_grammar=False):
 
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == nfsm_value
+
+    pda = dfsm.get_pushdown_automata()
+    pda_value = pda.read(inp)
+    assert pda_value == nfsm_value
 
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(stripped)
@@ -160,6 +168,10 @@ def test_case_9(inp, plot=False, run_grammar=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
 
+    pda = dfsm.get_pushdown_automata()
+    pda_value = pda.read(inp)
+    assert pda_value == expr_value
+
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
@@ -202,6 +214,10 @@ def test_case_11(inp, plot=False, run_grammar=False):
 
     assert not dfsm.is_non_deterministic()
 
+    pda = dfsm.get_pushdown_automata()
+    pda_value = pda.read(inp)
+    assert pda_value == expr_value
+
     if plot:
         AutomataPlotter.plot(dfsm)
 
@@ -230,6 +246,10 @@ def test_case_12(inp, plot=False, run_grammar=False):
 
     minimized = dfsm.minimize_automata()
     assert minimized.read(inp) == expr_value
+
+    pda = minimized.get_pushdown_automata()
+    pda_value = pda.read(inp)
+    assert pda_value == expr_value
 
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(minimized)

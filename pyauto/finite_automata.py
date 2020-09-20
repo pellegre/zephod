@@ -2,6 +2,8 @@ from networkx.drawing.nx_agraph import to_agraph
 
 from pyauto.delta import *
 from pyauto.automata import *
+from pyauto.pushdown_automata import *
+
 
 import networkx
 import math
@@ -431,6 +433,23 @@ class FiniteAutomata(Automata):
                 return True
 
         return False
+
+    def get_pushdown_automata(self):
+        initial = copy.deepcopy(self.initial)
+        final = self.final.copy()
+
+        transition = PDADelta()
+        for state in self.transition.delta:
+            for symbol in self.transition.delta[state]:
+                target = self.transition.delta[state][symbol]
+
+                for each in target:
+                    transition.add(state, each,
+                                   {
+                                       (symbol, Stack.EMPTY): Null()
+                                   })
+
+        return PushdownAutomata(transition, initial, final)
 
     def read(self, string):
         buffer = self(Buffer(data=string, initial=self.initial))
