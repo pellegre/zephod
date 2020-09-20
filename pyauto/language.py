@@ -241,7 +241,7 @@ class RegularLanguage:
                 assert not initial
                 initial = state
 
-            elif all_final:
+            if all_final:
                 final.add(state)
 
         columns = ["states"] + ["P_" + str(i) for i in range(len(self.rules))] + \
@@ -261,10 +261,10 @@ class RegularLanguage:
                     next_states.append("err")
 
             state_type = FiniteAutomata.NodeType.NONE
-            if state == initial:
-                state_type = FiniteAutomata.NodeType.INITIAL
-            elif state == initial and state in final:
+            if state == initial and state in final:
                 state_type = FiniteAutomata.NodeType.INITIAL + "/" + FiniteAutomata.NodeType.FINAL
+            elif state == initial:
+                state_type = FiniteAutomata.NodeType.INITIAL
             elif state in final:
                 state_type = FiniteAutomata.NodeType.FINAL
 
