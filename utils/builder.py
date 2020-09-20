@@ -16,11 +16,24 @@ class AutomataPlotter:
         return "/tmp/" + "".join(random.choice(string.ascii_letters) for _ in range(12))
 
     @staticmethod
-    def plot(z):
-        dot = z.build_dot()
+    def plot(z, layout="dot"):
+        dot = z.build_dot(layout=layout)
         filename = AutomataPlotter.get_tmp_filename() + ".pdf"
         dot.draw(path=filename)
         subprocess.Popen(["xdg-open " + filename], shell=True)
+
+    @staticmethod
+    def tikz(z, filename, output, labels=False, layout="dot"):
+        dot = z.build_dot(tex=True, labels=labels, layout=layout)
+        dot_file = "/tmp/" + filename + ".dot"
+        tex_file = "/tmp/" + filename + ".tex"
+
+        with open(dot_file, "w") as f:
+            f.write(dot.to_string())
+            subprocess.Popen(["dot2tex --crop -ftikz " + dot_file + " > " +
+                              tex_file + " && pdflatex --output-directory " + output + " " + tex_file], shell=True)
+
+            f.close()
 
 
 class FiniteAutomataBuilder:

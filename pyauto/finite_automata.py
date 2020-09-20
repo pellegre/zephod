@@ -508,12 +508,20 @@ class FiniteAutomata:
 
     @staticmethod
     def get_colors():
-        return ["lightskyblue4", "green4", "indianred4", "lavenderblush4", "olivedrab4",
-                "purple4", "steelblue4", "hotpink4",
-                "orangered4", "turquoise4"]
+        return ["purple", "red", "blue", "orange", "brown", "cyan", "green"]
 
-    def build_dot(self):
+    @staticmethod
+    def get_latex_node(state):
+        if "_" not in state.prefix:
+            return str(state.prefix) + "_{" + str(state.number) + "}"
+        else:
+            tokens = state.prefix.split("_")
+            state = state.prefix[0]
+            return str(state) + "_{" + str(tokens[1]) + "}^{" + tokens[2] + "}"
+
+    def build_dot(self, labels=True, tex=False, layout="dot"):
         colors = self.get_colors()
+        null_color = "gray"
 
         a = to_agraph(self.g)
         a.graph_attr["rankdir"] = "LR"
@@ -523,35 +531,55 @@ class FiniteAutomata:
         a.edge_attr["penwidth"] = 0.4
         a.edge_attr["arrowsize"] = 0.5
 
+        if tex:
+            a.node_attr["texmode"] = "math"
+            a.edge_attr["texmode"] = "math"
+
         symbol_colors = {}
-        for each in self.transition.delta:
-            for symbol in sorted(set(self.transition.delta[each])):
-                if symbol not in symbol_colors:
-                    symbol_colors[symbol] = colors.pop(0)
+        for symbol in sorted(list(self.transition.alphabet)):
+            if symbol not in symbol_colors and symbol != NullTransition.SYMBOL:
+                symbol_colors[symbol] = colors.pop(0)
 
-                    if not len(colors):
-                        colors = self.get_colors()
+                if not len(colors):
+                    colors = self.get_colors()
+            else:
+                symbol_colors[symbol] = null_color
 
+            if labels:
                 a.add_node(symbol, color=symbol_colors[symbol])
+                if symbol == NullTransition.SYMBOL and tex:
+                    node = a.get_node(symbol)
+                    node.attr["texlbl"] = "$\epsilon$"
 
         initial = a.get_node(str(self.initial))
         initial.attr["root"] = "true"
+
+        if tex:
+            initial.attr["label"] = self.get_latex_node(self.initial)
+
         if self.initial in self.final:
             initial.attr["shape"] = "doublecircle"
 
-        for state in filter(lambda n: n in self.final, self.transition.states):
+        for state in self.transition.states:
             node = a.get_node(str(state))
-            node.attr["shape"] = "doublecircle"
+            if state in self.final:
+                node.attr["shape"] = "doublecircle"
+                if tex:
+                    node.attr["label"] = self.get_latex_node(state)
+            else:
+                if tex:
+                    node.attr["label"] = self.get_latex_node(state)
 
         if self.has_null_transitions():
             important_nodes, important_to_final_nodes = [], []
             for each in self.g.nodes:
+
                 in_symbol = []
-                for edge in self.g.in_edges(node):
+                for edge in self.g.in_edges(each):
                     in_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
 
                 out_symbol = []
-                for edge in self.g.out_edges(node):
+                for edge in self.g.out_edges(each):
                     out_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
 
                 if len(in_symbol) >= 1 and not len(out_symbol):
@@ -564,26 +592,20 @@ class FiniteAutomata:
             if len(important_nodes) > 0:
                 important_nodes.append(self.initial)
 
-            if len(important_nodes) > 0:
-                a.add_node("important", fillcolor="darksalmon", style="filled")
-
             for state in important_nodes:
-                node = a.get_node(str(state))
-                node.attr["fillcolor"] = "darksalmon"
-                node.attr["style"] = "filled"
-
-            if len(important_to_final_nodes) > 0:
-                a.add_node("important\n(to final)", fillcolor="tomato", style="filled")
+                each = a.get_node(str(state))
+                each.attr["fillcolor"] = "gray"
+                each.attr["style"] = "filled"
 
             for state in important_to_final_nodes:
-                node = a.get_node(str(state))
-                node.attr["fillcolor"] = "tomato"
-                node.attr["style"] = "filled"
+                each = a.get_node(str(state))
+                each.attr["fillcolor"] = "orange"
+                each.attr["style"] = "filled"
 
         a.add_node("hidden", style="invisible")
         a.add_edge("hidden", str(self.initial))
 
-        a.layout("dot")
+        a.layout(layout)
 
         edges = {ei: {} for ei in self.transition.delta}
         for ei in self.transition.delta:
@@ -599,13 +621,18 @@ class FiniteAutomata:
                 symbol = edges[ei][ef]
 
                 edge = a.get_edge(str(ei), str(ef))
-                edge.attr["label"] = symbol
+                if symbol == NullTransition.SYMBOL and tex:
+                    edge.attr["texlbl"] = "$\epsilon$"
+                    edge.attr["label"] = "  "
+                else:
+                    edge.attr["label"] = symbol
                 if symbol not in symbol_colors and "," in symbol:
                     edge.attr["fontcolor"] = symbol_colors[symbol.split(",")[0]]
                     edge.attr["color"] = symbol_colors[symbol.split(",")[0]]
                 else:
                     edge.attr["fontcolor"] = symbol_colors[symbol]
                     edge.attr["color"] = symbol_colors[symbol]
+
         return a
 
 

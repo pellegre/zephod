@@ -96,7 +96,7 @@ class ParityRule(Constraint):
 
         states = {i + 1: "read_even_" + s + "_" + str(i + 1) for i, s in enumerate(self.pattern)}
         states.update({i + 1 + len(self.pattern):
-                           "read_odd_" + s + "_" + str(i+ 1) for i, s in enumerate(self.pattern)})
+                           "read_odd_" + s + "_" + str(i + 1) for i, s in enumerate(self.pattern)})
 
         states[0] = self.read_even
         states[len(self.pattern)] = self.read_odd
@@ -244,7 +244,7 @@ class RegularLanguage:
             elif all_final:
                 final.add(state)
 
-        columns = ["states"] + ["condition_" + str(i) for i in range(len(self.rules))] + \
+        columns = ["states"] + ["P_" + str(i) for i in range(len(self.rules))] + \
                   ["type"] + [a for a in self.alphabet]
         self.frame = pandas.DataFrame(columns=columns)
 
