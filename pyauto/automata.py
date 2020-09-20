@@ -94,8 +94,7 @@ class Automata:
             return done_buffer
 
     def read(self, string):
-        buffer = self(Buffer(data=string, initial=self.initial))
-        return buffer.state() in self.final and not len(buffer.head())
+        raise RuntimeError("read not implemented")
 
     def build_graph(self):
         g = networkx.DiGraph()
@@ -126,9 +125,16 @@ class Automata:
             state = state.prefix[0]
             return str(state) + "_{" + str(tokens[1]) + "}^{" + tokens[2] + "}"
 
+    def _build_a_graph(self, a):
+        pass
+
+    @staticmethod
+    def _get_null_color():
+        return "gray"
+
     def build_dot(self, labels=True, tex=False, layout="dot"):
         colors = self.get_colors()
-        null_color = "gray"
+        null_color = self._get_null_color()
 
         a = to_agraph(self.g)
         a.graph_attr["rankdir"] = "LR"
@@ -156,7 +162,7 @@ class Automata:
                 a.add_node(symbol, color=symbol_colors[symbol])
                 if NullTransition.SYMBOL in symbol and tex:
                     node = a.get_node(symbol)
-                    node.attr["texlbl"] = symbol.replace(NullTransition.SYMBOL, "$\epsilon$")
+                    node.attr["texlbl"] = "$" + symbol.replace(NullTransition.SYMBOL, "\epsilon") + "$"
 
         initial = a.get_node(str(self.initial))
         initial.attr["root"] = "true"
@@ -177,37 +183,7 @@ class Automata:
                 if tex:
                     node.attr["label"] = self.get_latex_node(state)
 
-        if self.has_null_transitions():
-            important_nodes, important_to_final_nodes = [], []
-            for each in self.g.nodes:
-
-                in_symbol = []
-                for edge in self.g.in_edges(each):
-                    in_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
-
-                out_symbol = []
-                for edge in self.g.out_edges(each):
-                    out_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
-
-                if len(in_symbol) >= 1 and not len(out_symbol):
-                    important_nodes.append(each)
-
-                    for neighbor in self.g.neighbors(each):
-                        if neighbor in self.final:
-                            important_to_final_nodes.append(each)
-
-            if len(important_nodes) > 0:
-                important_nodes.append(self.initial)
-
-            for state in important_nodes:
-                each = a.get_node(str(state))
-                each.attr["fillcolor"] = "gray"
-                each.attr["style"] = "filled"
-
-            for state in important_to_final_nodes:
-                each = a.get_node(str(state))
-                each.attr["fillcolor"] = "orange"
-                each.attr["style"] = "filled"
+        self._build_a_graph(a)
 
         a.add_node("hidden", style="invisible")
         a.add_edge("hidden", str(self.initial))
@@ -221,7 +197,10 @@ class Automata:
                     if ef not in edges[ei]:
                         edges[ei][ef] = str(symbol)
                     else:
-                        edges[ei][ef] = edges[ei][ef] + "," + str(symbol)
+                        if "/" not in symbol:
+                            edges[ei][ef] = edges[ei][ef] + "," + str(symbol)
+                        else:
+                            edges[ei][ef] = edges[ei][ef] + "\n" + str(symbol)
 
         for ei in edges:
             for ef in edges[ei]:
@@ -229,15 +208,21 @@ class Automata:
 
                 edge = a.get_edge(str(ei), str(ef))
                 if NullTransition.SYMBOL in symbol and tex:
-                    edge.attr["texlbl"] = symbol.replace(NullTransition.SYMBOL, "$\epsilon$")
+                    edge.attr["texlbl"] = "$" + symbol.replace(NullTransition.SYMBOL, "\epsilon") + "$"
                     edge.attr["label"] = "  "
                 else:
                     edge.attr["label"] = symbol
-                if symbol not in symbol_colors and "," in symbol:
-                    edge.attr["fontcolor"] = symbol_colors[symbol.split(",")[0]]
-                    edge.attr["color"] = symbol_colors[symbol.split(",")[0]]
+
+                if NullTransition.SYMBOL in symbol:
+                    edge.attr["fontcolor"] = null_color
+                    edge.attr["color"] = null_color
                 else:
-                    edge.attr["fontcolor"] = symbol_colors[symbol]
-                    edge.attr["color"] = symbol_colors[symbol]
+                    if "," in symbol and "/" not in symbol:
+                        if symbol not in symbol_colors:
+                            edge.attr["fontcolor"] = symbol_colors[symbol.split(",")[0]]
+                            edge.attr["color"] = symbol_colors[symbol.split(",")[0]]
+                        else:
+                            edge.attr["fontcolor"] = symbol_colors[symbol]
+                            edge.attr["color"] = symbol_colors[symbol]
 
         return a

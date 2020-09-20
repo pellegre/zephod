@@ -85,12 +85,8 @@ class FADelta(Delta):
 
 
 class FiniteAutomata(Automata):
-    class NodeType:
-        INITIAL = "initial"
-        FINAL = "final"
-        NONE = "none"
-
     def __init__(self, transition, initial, final):
+        assert isinstance(transition, FADelta)
         super().__init__(transition=transition, initial=initial, final=final)
 
         self.epsilon_closure = {}
@@ -150,6 +146,39 @@ class FiniteAutomata(Automata):
             transition.add(fe, other.initial, NullTransition.SYMBOL)
 
         return FiniteAutomata(transition, self.initial, other.final)
+
+    def _build_a_graph(self, a):
+        if self.has_null_transitions():
+            important_nodes, important_to_final_nodes = [], []
+            for each in self.g.nodes:
+
+                in_symbol = []
+                for edge in self.g.in_edges(each):
+                    in_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
+
+                out_symbol = []
+                for edge in self.g.out_edges(each):
+                    out_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
+
+                if len(in_symbol) >= 1 and not len(out_symbol):
+                    important_nodes.append(each)
+
+                    for neighbor in self.g.neighbors(each):
+                        if neighbor in self.final:
+                            important_to_final_nodes.append(each)
+
+            if len(important_nodes) > 0:
+                important_nodes.append(self.initial)
+
+            for state in important_nodes:
+                each = a.get_node(str(state))
+                each.attr["fillcolor"] = "gray"
+                each.attr["style"] = "filled"
+
+            for state in important_to_final_nodes:
+                each = a.get_node(str(state))
+                each.attr["fillcolor"] = "orange"
+                each.attr["style"] = "filled"
 
     def _build_epsilon_closure(self, initial, node):
         if initial not in self.epsilon_closure:
@@ -359,6 +388,8 @@ class FiniteAutomata(Automata):
 
             if len(out_symbol) != len(set(out_symbol)):
                 is_ndfa = True
+            elif len(out_symbol) > 1 and NullTransition.SYMBOL in out_symbol:
+                is_ndfa = True
 
         return is_ndfa
 
@@ -400,6 +431,10 @@ class FiniteAutomata(Automata):
                 return True
 
         return False
+
+    def read(self, string):
+        buffer = self(Buffer(data=string, initial=self.initial))
+        return buffer.state() in self.final and not len(buffer.head())
 
     def rebase(self, base):
         initial = self.initial.prefix + str(self.initial.number + base)

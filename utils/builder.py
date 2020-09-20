@@ -16,8 +16,8 @@ class AutomataPlotter:
         return "/tmp/" + "".join(random.choice(string.ascii_letters) for _ in range(12))
 
     @staticmethod
-    def plot(z, layout="dot"):
-        dot = z.build_dot(layout=layout)
+    def plot(z, labels=False, layout="dot"):
+        dot = z.build_dot(labels, layout=layout)
         filename = AutomataPlotter.get_tmp_filename() + ".pdf"
         dot.draw(path=filename)
         subprocess.Popen(["xdg-open " + filename], shell=True)

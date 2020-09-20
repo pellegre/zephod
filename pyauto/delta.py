@@ -163,13 +163,13 @@ class Delta:
     def _add_transition(self, source, target, symbols):
         raise RuntimeError("_add_transition not implemented")
 
-    def add(self, ei, ef, symbols):
+    def add(self, ei, ef, *args, **kwargs):
         source, target = State(ei), State(ef)
 
         self.states.add(source)
         self.states.add(target)
 
-        transition_symbols = self._add_transition(source, target, symbols)
+        transition_symbols = self._add_transition(source, target, *args, **kwargs)
 
         if source not in self.delta:
             self.delta[source] = {}

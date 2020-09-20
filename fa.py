@@ -2,6 +2,8 @@ from pyauto.finite_automata import *
 from utils.builder import *
 from pyauto.grammar import *
 from pyauto.language import *
+from pyauto.pushdown_automata import *
+
 
 import copy
 
@@ -458,11 +460,11 @@ def test_constraints():
 
     lang = RegularLanguage(alphabet={"a", "b", "c", "d"},
                            definition={
-                                   "rules": [
-                                       Even(pattern="d"), Odd(pattern="b"), NotContained(pattern="addc")
-                                   ],
-                                   "closure": {"a", "b", "c", "d"}
-                               })
+                               "rules": [
+                                   Even(pattern="d"), Odd(pattern="b"), NotContained(pattern="addc")
+                               ],
+                               "closure": {"a", "b", "c", "d"}
+                           })
 
     assert lang.fda.read("b")
     assert lang.fda.read("ddb")
@@ -475,12 +477,12 @@ def test_constraints():
 
     lang = RegularLanguage(alphabet={"a", "b", "c"},
                            definition={
-                                   "rules": [
-                                       Even(pattern="b"), Odd(pattern="c"),
-                                       NotContained(pattern="aac"), Order(before={"a", "b"}, after={"a", "c"})
-                                   ],
-                                   "closure": {"a", "b", "c"}
-                               })
+                               "rules": [
+                                   Even(pattern="b"), Odd(pattern="c"),
+                                   NotContained(pattern="aac"), Order(before={"a", "b"}, after={"a", "c"})
+                               ],
+                               "closure": {"a", "b", "c"}
+                           })
 
     assert lang.fda.read("bbc")
     assert lang.fda.read("c")
@@ -495,12 +497,12 @@ def test_constraints():
 
     lang = RegularLanguage(alphabet={"a", "b", "c"},
                            definition={
-                                   "rules": [
-                                       Even(pattern="baa"), Odd(pattern="c"),
-                                       NotContained(pattern="aac"), Order(before={"a", "b"}, after={"a", "c"})
-                                   ],
-                                   "closure": {"a", "b", "c"}
-                               })
+                               "rules": [
+                                   Even(pattern="baa"), Odd(pattern="c"),
+                                   NotContained(pattern="aac"), Order(before={"a", "b"}, after={"a", "c"})
+                               ],
+                               "closure": {"a", "b", "c"}
+                           })
 
     assert lang.fda.read("c")
     assert lang.fda.read("baabaabc")
@@ -544,6 +546,64 @@ def test_constraints():
     #
     # AutomataPlotter.plot(lang.fda)
     # assert lang.fda.read("bbca")
+
+
+def test_pda_case_1():
+    grammar = Grammar(non_terminal={"A"}, terminal={"a", "b", "c"})
+    grammar.add("S", "A")
+    grammar.add("A", "aAa")
+    grammar.add("A", "bAb")
+    grammar.add("A", "c")
+
+    transition = PDADelta()
+
+    transition.add("z0", "z0",
+                   {
+                        ("a", Stack.EMPTY): Push(obj="X"),
+                        ("a", "X"): Push(obj="X"),
+                        ("a", "Y"): Push(obj="X"),
+
+                        ("b", Stack.EMPTY): Push(obj="Y"),
+                        ("b", "Y"): Push(obj="Y"),
+                        ("b", "X"): Push(obj="Y")
+                    })
+
+    transition.add("z0", "z1",
+                   {
+                        ("c", Stack.EMPTY): Null(),
+                        ("c", "X"): Null(),
+                        ("c", "Y"): Null()
+                    })
+
+    transition.add("z1", "z1",
+                   {
+                        ("a", "X"): Pop(),
+                        ("b", "Y"): Pop(),
+                    })
+
+    transition.add("z1", "z2",
+                   {
+                        ("$", Stack.EMPTY): Null()
+                    })
+
+    pda = PushdownAutomata(transition, initial="z0", final={"z2"})
+
+    for i in range(500):
+        for j in [1, 5, 10, 20, 30]:
+            s = grammar(length=j)
+            assert pda.read(s)
+
+
+def test_pda_case_2():
+    grammar = Grammar(non_terminal={"Z"}, terminal={"a", "b"})
+
+    grammar.add("S", "$")
+    grammar.add("S", "Z")
+
+    grammar.add("Z", "ab")
+    grammar.add("Z", "aZb")
+
+    print(grammar(length=5))
 
 
 def run_cases():
@@ -633,9 +693,33 @@ def run_cases():
 
     test_constraints()
 
+    test_pda_case_1()
+
 
 if __name__ == '__main__':
     print("[+] FD ")
 
-    run_cases()
+    # grammar = Grammar(non_terminal={"A", "B", "C"}, terminal={"0", "1", "2", "3"})
+    #
+    # grammar.add("S", "ABC")
+    # grammar.add("S", "AC")
+    # grammar.add("S", "BC")
+    # grammar.add("S", "C")
+    #
+    # grammar.add("A", "0A1")
+    # grammar.add("A", "01")
+    #
+    # grammar.add("B", "1B2")
+    # grammar.add("B", "12")
+    #
+    # grammar.add("C", "3C")
+    # grammar.add("C", "3")
+    #
+    # print(grammar(length=10))
+
+    # AutomataPlotter.plot(pda)
+
+    test_pda_case_2()
+
+    # run_cases()
     # print(test_case_13("c", True))
