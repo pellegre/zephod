@@ -217,7 +217,7 @@ class Automata:
                     edge.attr["fontcolor"] = null_color
                     edge.attr["color"] = null_color
                 else:
-                    if "," in symbol and "/" not in symbol:
+                    if "/" not in symbol:
                         if symbol not in symbol_colors:
                             edge.attr["fontcolor"] = symbol_colors[symbol.split(",")[0]]
                             edge.attr["color"] = symbol_colors[symbol.split(",")[0]]
