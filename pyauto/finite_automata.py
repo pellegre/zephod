@@ -309,7 +309,7 @@ class FiniteAutomata(Automata):
                 pi_current, pi_next = pi_next, []
 
                 for pi in pi_current:
-                    pi_next += self._partition_by_symbol(pi, pi_current, symbol,
+                    pi_next += self._partition_by_symbol(pi, pi_global, symbol,
                                                          self.minimization_steps[step_number]["delta"])
 
             step_number += 1
@@ -353,7 +353,7 @@ class FiniteAutomata(Automata):
 
         return FiniteAutomata(transition, initial, final)
 
-    def get_deterministic_automata(self):
+    def get_deterministic_automata(self, with_states_map=False):
         assert not self.has_null_transitions()
 
         if not self.is_non_deterministic():
@@ -377,6 +377,9 @@ class FiniteAutomata(Automata):
             tuple_current_state = tuple(sorted(each))
             if len(self.final.intersection(each)):
                 final.add(states_map[tuple_current_state])
+
+        if with_states_map:
+            return FiniteAutomata(transition, states_map[tuple({self.initial})], final), states_map
 
         return FiniteAutomata(transition, states_map[tuple({self.initial})], final)
 
