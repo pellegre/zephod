@@ -7,7 +7,7 @@ from pyauto.finite_automata import *
 
 class Grammar:
     @staticmethod
-    def _get_non_terminal_from_counter(counter):
+    def get_non_terminal_from_counter(counter):
         return chr((counter - ord('A') - 1) % (ord('R') - ord('A') + 1) + ord('A'))
 
     @staticmethod
@@ -19,16 +19,16 @@ class Grammar:
         for node in g.nodes:
             if node == automata.initial:
                 if len(g.in_edges(node)) > 0:
-                    networkx.set_node_attributes(g, {node: Grammar._get_non_terminal_from_counter(counter)},
+                    networkx.set_node_attributes(g, {node: Grammar.get_non_terminal_from_counter(counter)},
                                                  "non_terminal")
                     counter -= 1
             elif node in automata.final:
                 if len(g.out_edges(node)) > 0:
-                    networkx.set_node_attributes(g, {node: Grammar._get_non_terminal_from_counter(counter)},
+                    networkx.set_node_attributes(g, {node: Grammar.get_non_terminal_from_counter(counter)},
                                                  "non_terminal")
                     counter -= 1
             else:
-                networkx.set_node_attributes(g, {node: Grammar._get_non_terminal_from_counter(counter)}, "non_terminal")
+                networkx.set_node_attributes(g, {node: Grammar.get_non_terminal_from_counter(counter)}, "non_terminal")
                 counter -= 1
 
         non_terminal = set(networkx.get_node_attributes(g, "non_terminal").values())
@@ -73,16 +73,16 @@ class Grammar:
 
     def __str__(self):
         string = "T = " + str(self.terminal) + " ; N = " + str(self.non_terminal) + "\n"
-        for l in self.rules:
-            for r in self.rules[l]:
-                string += l + " -> " + r + "\n"
+        for ll in self.rules:
+            for r in self.rules[ll]:
+                string += ll + " -> " + r + "\n"
         return string[:-1]
 
     def __repr__(self):
         return self.__str__()
 
     def _run_random_rule(self, string, length):
-        rules = [r for r in self.rules if r != self.start]
+        rules = [r for r in self.rules]
         left = rules[random.randint(0, len(rules) - 1)]
 
         i = string.find(left)
@@ -95,7 +95,7 @@ class Grammar:
                 all(map(lambda s: s in self.terminal, self.rules[left][rule])):
             rule = random.randint(0, len(self.rules[left]) - 1)
 
-        return string[:i] + self.rules[left][rule] + string[i+len(left):]
+        return string[:i] + self.rules[left][rule] + string[i + len(left):]
 
     def _sanity_check(self):
         assert self.start in self.rules
@@ -115,17 +115,22 @@ class Grammar:
 
         if left not in self.rules:
             self.rules[left] = [right]
+            return True
         else:
-            self.rules[left].append(right)
+            if right not in self.rules[left]:
+                self.rules[left].append(right)
+                return True
+
+        return False
 
     def is_regular(self):
         is_regular = all(map(lambda s: s in self.non_terminal or s == self.start and len(s) == 1, self.rules))
 
-        for l in self.rules:
+        for ll in self.rules:
             is_regular = is_regular & \
                          all(map(lambda r: (len(r) == 1 and r in self.terminal) or
                                            (len(r) == 2 and r[0] in self.terminal and r[1] in self.non_terminal),
-                                 self.rules[l]))
+                                 self.rules[ll]))
 
         return is_regular
 
@@ -155,6 +160,37 @@ class Grammar:
 
         return FiniteAutomata(transition, initial, {final})
 
+    def simplify_null(self):
+        for each in list(self.rules):
+            if each != self.start and NullTransition.SYMBOL in self.rules[each]:
+                self.rules[each].remove(NullTransition.SYMBOL)
+
+                for other in list(self.rules):
+                    right = self.rules[other]
+
+                    for replace_null in list(map(lambda r: r.replace(each, ''), right)):
+                        if len(replace_null):
+                            self.add(other, replace_null)
+                        else:
+                            self.add(other, NullTransition.SYMBOL)
+                            self.simplify_null()
+
+    def remove_start_from_right(self):
+        if any(map(lambda r: self.start in r, self.rules[self.start])):
+            new_symbol = chr(ord(min(self.rules.keys(), key=lambda c: ord(c))) - 1)
+            self.add(self.start, new_symbol)
+
+            for each in filter(lambda e: e != new_symbol, list(self.rules[self.start])):
+                if self.start in each:
+                    self.rules[self.start].remove(each)
+
+                if each != NullTransition.SYMBOL:
+                    self.add(new_symbol, each.replace(self.start, new_symbol))
+
+    def simplify(self):
+        self.simplify_null()
+        self.remove_start_from_right()
+
     def __call__(self, length=1):
         self._sanity_check()
 
@@ -164,6 +200,34 @@ class Grammar:
         while any(map(lambda s: s in self.non_terminal, string)):
             string = self._run_random_rule(string, length)
 
-        if string == NullTransition.SYMBOL:
-            return ""
-        return string
+        return string.replace(NullTransition.SYMBOL, "")
+
+
+class OpenGrammar(Grammar):
+    def __init__(self):
+        super().__init__(terminal=set(), non_terminal=set(), start="S")
+        self.non_terminal_counter = ord('S')
+
+    def get_non_terminal(self):
+        non_terminal = Grammar.get_non_terminal_from_counter(self.non_terminal_counter)
+        self.non_terminal_counter -= 1
+        return non_terminal
+
+    def add(self, left, right):
+        for e in left:
+            if e.isupper() and e != self.start:
+                self.non_terminal.add(e)
+            elif e != self.start:
+                self.terminal.add(e)
+
+        for e in right:
+            if e.isupper():
+                self.non_terminal.add(e)
+            else:
+                self.terminal.add(e)
+
+        if left not in self.rules:
+            self.rules[left] = [right]
+        else:
+            if right not in self.rules[left]:
+                self.rules[left].append(right)
