@@ -40,11 +40,12 @@ class FDATransition(Transition):
         pointer = tape.pointer()
 
         buffer = tape.copy()
+
         buffer.states = [self.fda.initial]
         buffer.pointers = [pointer]
 
         parsed = self.fda(buffer)
-        if parsed.error and parsed.state() in self.fda.final:
+        if parsed.error and parsed.state() in self.fda.final and parsed.pointer() - pointer > 0:
             tape.read(self.target, parsed.pointer() - pointer)
         else:
             tape.error = True
@@ -52,7 +53,10 @@ class FDATransition(Transition):
         return tape
 
     def symbol(self):
-        return "FDA" + str(hex(id(self)))
+        if self.fda.regex:
+            return self.fda.regex
+        else:
+            return str(hex(id(self)))
 
 
 class FADelta(Delta):
@@ -91,6 +95,8 @@ class FiniteAutomata(Automata):
         assert isinstance(transition, FADelta)
         super().__init__(transition=transition, initial=initial, final=final)
 
+        self.regex = None
+
         self.epsilon_closure = {}
         if self.has_null_transitions():
             for each in self.g.nodes:
@@ -119,7 +125,10 @@ class FiniteAutomata(Automata):
         for fe in other.final:
             transition.add(fe, final, NullTransition.SYMBOL)
 
-        return FiniteAutomata(transition, self.initial, {final})
+        fda = FiniteAutomata(transition, self.initial, {final})
+        fda.regex = "(" + str(self.regex) + " + " + str(p.regex) + ")"
+
+        return fda
 
     def __invert__(self):
         this = self.rebase(1)
@@ -135,7 +144,14 @@ class FiniteAutomata(Automata):
             if fe != this.initial:
                 transition.add(fe, this.initial, NullTransition.SYMBOL)
 
-        return FiniteAutomata(transition, self.initial, {final})
+        fda = FiniteAutomata(transition, self.initial, {final})
+
+        if self.regex[0] != "(" and len(self.regex) > 1:
+            fda.regex = "(" + self.regex + ")*"
+        else:
+            fda.regex = self.regex + "*"
+
+        return fda
 
     def __or__(self, p):
         other = p.rebase(self.transition.max_state().number + 1)
@@ -147,7 +163,10 @@ class FiniteAutomata(Automata):
         for fe in self.final:
             transition.add(fe, other.initial, NullTransition.SYMBOL)
 
-        return FiniteAutomata(transition, self.initial, other.final)
+        fda = FiniteAutomata(transition, self.initial, other.final)
+        fda.regex = str(self.regex) + str(p.regex)
+
+        return fda
 
     def _build_a_graph(self, a):
         if self.has_null_transitions():
@@ -278,7 +297,10 @@ class FiniteAutomata(Automata):
                         if each not in states_to_remove:
                             transition.add(state, each, symbol)
 
-        return FiniteAutomata(transition, self.initial, final)
+        fda = FiniteAutomata(transition, self.initial, final)
+        fda.regex = self.regex
+
+        return fda
 
     def minimize_automata(self):
         assert not self.has_null_transitions()
@@ -351,13 +373,19 @@ class FiniteAutomata(Automata):
                     tuple_state = tuple(sorted(pi_final[g]))
                     transition.add(states_map[state], states_map[tuple_state], symbol)
 
-        return FiniteAutomata(transition, initial, final)
+        fda = FiniteAutomata(transition, initial, final)
+        fda.regex = self.regex
+
+        return fda
 
     def get_deterministic_automata(self, with_states_map=False):
         assert not self.has_null_transitions()
 
         if not self.is_non_deterministic():
-            return FiniteAutomata(self.transition, self.initial, self.final)
+            fda = FiniteAutomata(self.transition, self.initial, self.final)
+            fda.regex = self.regex
+
+            return fda
 
         assert len(self.state_power_set) > 0
 
@@ -379,9 +407,15 @@ class FiniteAutomata(Automata):
                 final.add(states_map[tuple_current_state])
 
         if with_states_map:
-            return FiniteAutomata(transition, states_map[tuple({self.initial})], final), states_map
+            fda = FiniteAutomata(transition, states_map[tuple({self.initial})], final), states_map
+            fda.regex = self.regex
 
-        return FiniteAutomata(transition, states_map[tuple({self.initial})], final)
+            return fda
+
+        fda = FiniteAutomata(transition, states_map[tuple({self.initial})], final)
+        fda.regex = self.regex
+
+        return fda
 
     def is_non_deterministic(self):
         is_ndfa = False
@@ -428,7 +462,10 @@ class FiniteAutomata(Automata):
             for symbol in self._get_symbol_from_edge(g, edge):
                 transition.add(edge[0], edge[1], symbol)
 
-        return FiniteAutomata(transition, self.initial, final)
+        fda = FiniteAutomata(transition, self.initial, final)
+        fda.regex = self.regex
+
+        return fda
 
     def has_null_transitions(self):
         for edge in self.g.edges:
@@ -461,7 +498,10 @@ class FiniteAutomata(Automata):
     def rebase(self, base):
         initial = self.initial.prefix + str(self.initial.number + base)
         final = {e.prefix + str(e.number + base) for e in self.final}
-        return FiniteAutomata(self.transition.rebase(base), initial, final)
+        fda = FiniteAutomata(self.transition.rebase(base), initial, final)
+        fda.regex = self.regex
+
+        return fda
 
     def get_colors(self):
         return ["purple", "red", "blue", "orange", "brown", "cyan", "green"]
@@ -483,3 +523,6 @@ class Z(FiniteAutomata):
         final = {"z" + str(state)}
 
         super().__init__(transition, initial, final)
+
+        self.regex = expression
+
