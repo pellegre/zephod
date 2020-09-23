@@ -1,9 +1,17 @@
 from pyauto.finite_automata import *
+from pyauto.grammar import *
+
+from functools import reduce
+
 from utils.builder import *
 
-import itertools
+from sympy import *
+from sympy.logic.boolalg import BooleanTrue
 
+import itertools
 import pandas
+import sympy
+
 
 # --------------------------------------------------------------------
 #
@@ -209,9 +217,10 @@ class Order(RuleDefinition):
     def _build(self, **kwargs):
         return OrderRule(**kwargs)
 
+
 # --------------------------------------------------------------------
 #
-# languages definition
+# regular languages definition
 #
 # --------------------------------------------------------------------
 
@@ -235,7 +244,7 @@ class RegularLanguage:
                                   [r.fda.initial for r in self.rules], [e for e in each]))
 
             all_final = all(map(lambda fin, s: s in fin,
-                                  [r.fda.final for r in self.rules], [e for e in each]))
+                                [r.fda.final for r in self.rules], [e for e in each]))
 
             if all_initial:
                 assert not initial
@@ -271,7 +280,7 @@ class RegularLanguage:
             row = [state] + [c for c in each] + [state_type] + next_states
             self.frame = pandas.concat([self.frame, pandas.DataFrame([row], columns=columns)])
 
-        self.fda = FiniteAutomataBuilder.\
+        self.fda = FiniteAutomataBuilder. \
             get_finite_automata_from_frame(self.frame[["states", "type"] + self.alphabet]).strip_redundant()
 
     def _sanity(self):
@@ -279,3 +288,100 @@ class RegularLanguage:
         assert "closure" in self.definition
 
         assert len(self.definition["closure"]) == len(self.alphabet)
+
+
+# --------------------------------------------------------------------
+#
+# context-free languages definition
+#
+# --------------------------------------------------------------------
+
+
+class ContextFreeLanguage:
+    def __init__(self, expression, conditions):
+        self.expression, self.conditions = expression, conditions
+        self._sanity()
+
+        exponent_relations = {}
+
+        for each in self.conditions:
+            lhs, rhs = each.lhs, each.rhs
+
+            left_symbols = []
+            if isinstance(lhs, sympy.core.symbol.Symbol):
+                left_symbols.append(lhs)
+            elif isinstance(each, sympy.core.relational.Relational):
+                for ll in lhs.args:
+                    left_symbols.append(ll)
+
+            right_symbols = []
+            if isinstance(rhs, sympy.core.symbol.Symbol):
+                right_symbols.append(rhs)
+            elif isinstance(each, sympy.core.relational.Relational):
+                for rr in rhs.args:
+                    right_symbols.append(rr)
+
+            for ll in left_symbols:
+                if ll not in exponent_relations:
+                    exponent_relations[ll] = {ll}
+
+                for rr in right_symbols:
+                    if rr not in exponent_relations:
+                        exponent_relations[rr] = {rr}
+
+                    exponent_relations[ll].update(left_symbols + right_symbols)
+                    exponent_relations[rr].update(left_symbols + right_symbols)
+
+        self.relations = {frozenset(e): list() for e in exponent_relations.values()}
+        self.constraints = {frozenset(e): 1 for e in exponent_relations.values()}
+
+        for i, expr in enumerate(self.expression):
+            self.relations[self._get_group_from_expression(expr)].append(i)
+
+        for expr in self.conditions:
+            self.constraints[self._get_group_from_expression(expr)] += 1
+
+        if not all(map(lambda r, c: len(self.relations[r]) <= self.constraints[c],
+                       self.relations, self.constraints)):
+            raise RuntimeError("not context free")
+
+    def check(self, data):
+        exponent = {}
+        for expr in self.expression:
+            if expr.base not in exponent:
+                exponent[expr.base] = expr.exp
+            else:
+                exponent[expr.base] = exponent[expr.base] + expr.exp
+
+        count = {expr.base: data.count(str(expr.base)) for expr in self.expression}
+        sol = solve([Eq(exponent[e], count[e]) for e in exponent])
+
+        if len(sol):
+            return all(map(lambda c: c.subs(sol), self.conditions))
+
+        return False
+
+    def _get_group_from_expression(self, expr):
+        if isinstance(expr, sympy.core.power.Pow):
+            expression = expr.exp
+        elif isinstance(expr, sympy.core.relational.Relational):
+            expression = expr
+
+        groups = [each for each in self.relations if expression.free_symbols.issubset(each)]
+        assert len(groups) == 1
+
+        return groups[0]
+
+    def _sanity(self):
+        for each in self.expression:
+            assert isinstance(each, sympy.core.power.Pow)
+
+        for each in self.conditions:
+            assert isinstance(each, sympy.core.relational.Relational)
+
+    def generate_grammar(self):
+        grammar = OpenGrammar()
+        relations = list(self.relations.items())
+        grammar.simplify()
+        return grammar
+

@@ -8,7 +8,7 @@ from pyauto.pushdown_automata import *
 import copy
 
 
-def test_case_1(inp, plot=False, run_grammar=False):
+def test_case_1(inp, plotter=False, run_grammar=False):
     transition = FADelta()
     transition.add("e0", "e1", {"0"})
     transition.add("e0", "e2", {"1"})
@@ -58,7 +58,7 @@ def test_case_1(inp, plot=False, run_grammar=False):
             for j in [1, 5, 10, 20, 30]:
                 assert minimized.read(grammar_from_fda(length=j))
 
-    if plot:
+    if plotter:
         AutomataPlotter.plot(nfsm)
         AutomataPlotter.plot(minimized)
 
@@ -614,18 +614,6 @@ def test_pda_case_1():
             assert pda.read(s)
 
 
-def test_pda_case_2():
-    grammar = Grammar(non_terminal={"Z"}, terminal={"a", "b"})
-
-    grammar.add("S", "$")
-    grammar.add("S", "Z")
-
-    grammar.add("Z", "ab")
-    grammar.add("Z", "aZb")
-
-    print(grammar(length=5))
-
-
 def run_cases():
     assert test_case_1("00111011110", run_grammar=True)
     assert test_case_1("00")
@@ -718,28 +706,6 @@ def run_cases():
 
 if __name__ == '__main__':
     print("[+] FD ")
-
-    # grammar = Grammar(non_terminal={"A", "B", "C"}, terminal={"0", "1", "2", "3"})
-    #
-    # grammar.add("S", "ABC")
-    # grammar.add("S", "AC")
-    # grammar.add("S", "BC")
-    # grammar.add("S", "C")
-    #
-    # grammar.add("A", "0A1")
-    # grammar.add("A", "01")
-    #
-    # grammar.add("B", "1B2")
-    # grammar.add("B", "12")
-    #
-    # grammar.add("C", "3C")
-    # grammar.add("C", "3")
-    #
-    # print(grammar(length=10))
-
-    # AutomataPlotter.plot(pda)
-
-    test_pda_case_2()
 
     # run_cases()
     # print(test_case_13("c", True))
