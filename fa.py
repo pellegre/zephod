@@ -707,5 +707,15 @@ def run_cases():
 if __name__ == '__main__':
     print("[+] FD ")
 
+    grammar = Grammar(non_terminal={"A", "B"}, terminal={"a", "b", "c"})
+    grammar.add("S", "AB")
+    grammar.add("A", "aA")
+    grammar.add("A", "aB")
+    grammar.add("A", "a")
+    grammar.add("B", "bB")
+    grammar.add("B", "b")
+
+    print(grammar(length=6))
+
     # run_cases()
     # print(test_case_13("c", True))

@@ -104,10 +104,8 @@ class Grammar:
     def add(self, left, right):
         assert self.start not in right
 
-        left_sanity = list(map(lambda s: s in self.terminal or
-                                         s in self.non_terminal or s == self.start, left))
-        right_sanity = list(map(lambda s: s in self.terminal or
-                                          s in self.non_terminal or s == self.start, right))
+        left_sanity = list(map(lambda s: s in self.terminal or s in self.non_terminal or s == self.start, left))
+        right_sanity = list(map(lambda s: s in self.terminal or s in self.non_terminal or s == self.start, right))
 
         assert sum(left_sanity) == len(left)
         if right != NullTransition.SYMBOL:
@@ -204,8 +202,8 @@ class Grammar:
 
 
 class OpenGrammar(Grammar):
-    def __init__(self):
-        super().__init__(terminal=set(), non_terminal=set(), start="S")
+    def __init__(self, start="S"):
+        super().__init__(terminal=set(), non_terminal=set(), start=start)
         self.non_terminal_counter = ord('S')
 
     def get_non_terminal(self):
