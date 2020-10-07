@@ -1,6 +1,8 @@
 from pyauto.delta import *
 from pyauto.automata import *
 
+import shutil
+
 # --------------------------------------------------------------------
 #
 # stack buffer
@@ -18,14 +20,12 @@ class StackBuffer(Buffer):
         super().__init__(**kwargs)
 
     def peek(self):
-        pointer = self._get_stack_pointer()
-        if pointer >= 0:
-            return self.stack[pointer]
+        if len(self.stack):
+            return self.stack[-1]
         return Stack.EMPTY
 
     def pop(self):
-        pointer = self._get_stack_pointer()
-        if pointer >= 0:
+        if len(self.stack):
             return self.stack.pop()
 
         raise RuntimeError("empty stack")
@@ -33,8 +33,25 @@ class StackBuffer(Buffer):
     def push(self, obj):
         self.stack.append(obj)
 
-    def _get_stack_pointer(self):
-        return len(self.stack) - 1
+    def _state_transition(self):
+        if len(self.states) > 1:
+            delta_pointer = self.pointer() - self.pointers[-2]
+            if delta_pointer:
+                symbol = self.buffer[self.pointers[-2]]
+            else:
+                symbol = "$"
+
+            return "(" + str(self.states[-2]) + ", " + symbol + ") -> " + str(self.states[-1])
+        else:
+            return str(self.states[-1])
+
+    def __str__(self):
+        spaces = ' '.join(['' for _ in range(16)])
+        string = ' '.join(self.buffer) + spaces + \
+                 "{:30}".format("state = [" + str(self._state_transition()) + "] ") + str(self.stack) + "\n"
+        string += ' '.join([' ' if i != self.pointer() else '^' for i in range(self.pointer() + 1)])
+
+        return string
 
     def _copy(self, **kwargs):
         stack_buffer = StackBuffer(data=self.data(), **kwargs)
@@ -157,7 +174,7 @@ class StackCharTransition(Transition):
             self.action(tape)
             tape.read(self.target, 1)
         else:
-            tape.error = True
+            tape.done = True
 
     def symbol(self):
         return self.character + "," + self.action.on_symbol + "/" + self.action.symbol()
@@ -173,7 +190,7 @@ class StackNullTransition(Transition):
             self.action(tape)
             tape.read(self.target, 0)
         else:
-            tape.error = True
+            tape.done = True
 
     def symbol(self):
         return NullTransition.SYMBOL + "," + self.action.on_symbol + "/" + self.action.symbol()
@@ -231,3 +248,25 @@ class PushdownAutomata(Automata):
     def read(self, string):
         buffer = self(StackBuffer(data=string, initial=self.initial))
         return buffer.state() in self.final and not len(buffer.head())
+
+    def debug(self, string):
+        buffer = StackBuffer(data=string, initial=self.initial)
+        columns = shutil.get_terminal_size((80, 20)).columns
+
+        size = len(str(buffer).split('\n')[0])
+        right = size - (2 * len(string) + 14)
+
+        print()
+        print(("{:" + str(size-right) + "}").format("initial (" + str(self.initial) + ")") +
+              ("{:" + str(right) + "}").format("final " + str(self.final) + ""))
+        print('='.join(['' for _ in range(columns)]))
+
+        print()
+        print(buffer)
+        print()
+        buffer = self(buffer, debug=True)
+
+        accepted = buffer.state() in self.final and not len(buffer.head())
+        print()
+        print("{:25}".format("accepted ---->  (" + str(accepted) + ")"))
+        print()

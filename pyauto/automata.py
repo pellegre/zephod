@@ -3,6 +3,8 @@ from networkx.drawing.nx_agraph import to_agraph
 
 import networkx
 
+import shutil
+
 
 class NullTransition(Transition):
     SYMBOL = "$"
@@ -57,41 +59,36 @@ class Automata:
         else:
             g.add_edge(ei, ef, symbol=[symbol])
 
-    def __call__(self, tape):
-        if not len(tape.head()) and self.initial in self.final:
-            done_buffer = tape.copy()
-            return done_buffer
-
-        buffers, final_buffer = [tape], None
-        while not all(map(lambda b: not len(b.head()) and b.error, buffers)):
+    def __call__(self, tape, debug=False):
+        buffers = [tape]
+        while not all(map(lambda b: b.done, buffers)):
             parsed = set()
-            for buffer in filter(lambda b: not b.error, buffers):
+            for buffer in filter(lambda b: not b.done, buffers):
                 parsed.update(self.transition(buffer))
 
-            if len(parsed):
-                buffers = list(parsed)
+            buffers = list(parsed)
 
-                consumed_in_final = list(map(lambda b: not len(b.head()) and b.state() in self.final, buffers))
-                if any(consumed_in_final):
-                    final_buffer = buffers[consumed_in_final.index(True)]
+            if debug:
+                columns = shutil.get_terminal_size((80, 20)).columns
+                print('-'.join(['' for _ in range(columns)]))
+                for buffer in filter(lambda b: not b.done, buffers):
+                    print(buffer)
 
-            else:
-                consumed_in_final = list(map(lambda b: b.state() in self.final, buffers))
+        consumed_in_final = list(map(lambda b: b.state() in self.final, buffers))
 
-                if any(consumed_in_final):
-                    final_buffer = buffers[consumed_in_final.index(True)]
-                else:
-                    final_buffer = max(buffers, key=lambda b: b.pointer())
+        if any(consumed_in_final):
+            consumed = buffers[consumed_in_final.index(True)]
+            if debug:
+                print()
+                print(consumed)
+            return buffers[consumed_in_final.index(True)]
 
-                break
-
-        if final_buffer:
-            return final_buffer
         else:
-            done_buffer = tape.copy()
-            done_buffer.error = True
-
-            return done_buffer
+            last = max(buffers, key=lambda b: b.pointer())
+            if debug:
+                print()
+                print(last)
+            return max(buffers, key=lambda b: b.pointer())
 
     def read(self, string):
         raise RuntimeError("read not implemented")

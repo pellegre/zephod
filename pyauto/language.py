@@ -37,7 +37,7 @@ class Constraint:
         assert self.fda
 
         buffers = list(self.fda.transition(Buffer(data=character, initial=state)))
-        non_error_states = list(map(lambda b: not b.error, buffers))
+        non_error_states = list(map(lambda b: not b.done, buffers))
 
         if sum(non_error_states):
             assert sum(non_error_states) == 1

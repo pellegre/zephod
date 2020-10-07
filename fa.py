@@ -704,18 +704,72 @@ def run_cases():
     test_pda_case_1()
 
 
-if __name__ == '__main__':
+def main():
     print("[+] FD ")
 
-    grammar = Grammar(non_terminal={"A", "B"}, terminal={"a", "b", "c"})
-    grammar.add("S", "AB")
-    grammar.add("A", "aA")
-    grammar.add("A", "aB")
-    grammar.add("A", "a")
-    grammar.add("B", "bB")
-    grammar.add("B", "b")
+    transition = FADelta()
+    transition.add("e0", "e0", {"0", "1"})
+    transition.add("e0", "e1", {"1"})
+    transition.add("e0", "e3", {"0"})
 
-    print(grammar(length=6))
+    transition.add("e1", "e2", {"1"})
+    transition.add("e2", "e2", {"0", "1"})
 
-    # run_cases()
-    # print(test_case_13("c", True))
+    transition.add("e3", "e4", {"0"})
+    transition.add("e4", "e4", {"0", "1"})
+
+    nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
+
+    nfsm = (~(Z("aa") + Z("b")) | (Z("c") + Z("d")) | ~Z("cd"))
+
+    g = Grammar.build_from_finite_automata(nfsm.minimal())
+
+    nfsm.debug(g(length=1))
+
+    # AutomataPlotter.plot(nfsm)
+
+    grammar = Grammar(non_terminal={"A"}, terminal={"a", "b", "c"})
+    grammar.add("S", "A")
+    grammar.add("A", "aAa")
+    grammar.add("A", "bAb")
+    grammar.add("A", "c")
+
+    transition = PDADelta()
+
+    transition.add("z0", "z0",
+                   {
+                        ("a", Stack.EMPTY): Push(obj="X"),
+                        ("a", "X"): Push(obj="X"),
+                        ("a", "Y"): Push(obj="X"),
+
+                        ("b", Stack.EMPTY): Push(obj="Y"),
+                        ("b", "Y"): Push(obj="Y"),
+                        ("b", "X"): Push(obj="Y")
+                    })
+
+    transition.add("z0", "z1",
+                   {
+                        ("c", Stack.EMPTY): Null(),
+                        ("c", "X"): Null(),
+                        ("c", "Y"): Null()
+                    })
+
+    transition.add("z1", "z1",
+                   {
+                        ("a", "X"): Pop(),
+                        ("b", "Y"): Pop(),
+                    })
+
+    transition.add("z1", "z2",
+                   {
+                        ("$", Stack.EMPTY): Null()
+                    })
+
+    pda = PushdownAutomata(transition, initial="z0", final={"z2"})
+
+    pda.debug(grammar(length=15))
+
+    # AutomataPlotter.plot(pda)
+
+
+main()

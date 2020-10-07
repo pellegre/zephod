@@ -8,6 +8,8 @@ from pyauto.pushdown_automata import *
 import networkx
 import math
 import copy
+import shutil
+
 
 # --------------------------------------------------------------------
 #
@@ -25,7 +27,7 @@ class CharTransition(Transition):
         if len(tape.head()) and tape.head()[0] == self.character:
             tape.read(self.target, 1)
         else:
-            tape.error = True
+            tape.done = True
 
     def symbol(self):
         return self.character
@@ -45,10 +47,10 @@ class FDATransition(Transition):
         buffer.pointers = [pointer]
 
         parsed = self.fda(buffer)
-        if parsed.error and parsed.state() in self.fda.final and parsed.pointer() - pointer > 0:
+        if parsed.done and parsed.state() in self.fda.final and parsed.pointer() > pointer:
             tape.read(self.target, parsed.pointer() - pointer)
         else:
-            tape.error = True
+            tape.done = True
 
         return tape
 
@@ -494,6 +496,29 @@ class FiniteAutomata(Automata):
     def read(self, string):
         buffer = self(Buffer(data=string, initial=self.initial))
         return buffer.state() in self.final and not len(buffer.head())
+
+    def debug(self, string):
+        buffer = Buffer(data=string, initial=self.initial)
+        columns = shutil.get_terminal_size((80, 20)).columns
+
+        size = len(str(buffer).split('\n')[0])
+        right = size - (2 * len(string) + 14)
+        print('-'.join(['' for _ in range(columns)]))
+
+        print()
+        print(("{:" + str(size-right) + "}").format("initial (" + str(self.initial) + ")") +
+              ("{:" + str(right) + "}").format("final " + str(self.final) + ""))
+        print('='.join(['' for _ in range(columns)]))
+
+        print()
+        print(buffer)
+        print()
+        buffer = self(buffer, debug=True)
+
+        accepted = buffer.state() in self.final and not len(buffer.head())
+        print()
+        print("{:25}".format("accepted ---->  (" + str(accepted) + ")"))
+        print()
 
     def rebase(self, base):
         initial = self.initial.prefix + str(self.initial.number + base)

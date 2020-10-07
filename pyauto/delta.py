@@ -13,11 +13,11 @@ class Input:
         self.states = [State(initial)]
         self.pointers = [0]
 
-        self.error = False
+        self.done = False
 
     def __str__(self):
         string = "(pointers = " + str(self.pointers) + " , states = " + str(self.states) + ") @ "
-        string += "(error = " + str(self.error) + ") # "
+        string += "(done = " + str(self.done) + ") # "
         if not len(self.head()):
             string += "data = " + str(self.data()) + "\n"
         else:
@@ -27,28 +27,19 @@ class Input:
     def __repr__(self):
         return self.__str__()
 
-    def _get_data_from_pointer(self, pointer):
-        raise RuntimeError("_get_data_from_pointer not implemented")
-
-    def _copy(self, **kwargs):
-        raise RuntimeError("_check_done not implemented")
-
     def copy(self):
         obj = self._copy(initial=self.states[0])
         obj.states = self.states.copy()
         obj.pointers = self.pointers.copy()
-        obj.done = self.error
+        obj.done = self.done
 
         return obj
-
-    def data(self):
-        raise RuntimeError("data not implemented")
 
     def head(self):
         return self._get_data_from_pointer(self.pointer())
 
     def read(self, state, count):
-        assert not self.error
+        assert not self.done
 
         self.states.append(state)
         self.pointers.append(self.pointer() + count)
@@ -60,6 +51,15 @@ class Input:
 
     def pointer(self):
         return self.pointers[-1]
+
+    def _get_data_from_pointer(self, pointer):
+        raise RuntimeError("_get_data_from_pointer not implemented")
+
+    def _copy(self, **kwargs):
+        raise RuntimeError("_copy not implemented")
+
+    def data(self):
+        raise RuntimeError("data not implemented")
 
 
 class Buffer(Input):
@@ -75,6 +75,30 @@ class Buffer(Input):
 
     def _get_data_from_pointer(self, pointer):
         return self.buffer[pointer:]
+
+    def _state_transition(self):
+        if len(self.states) > 1:
+            delta_pointer = self.pointer() - self.pointers[-2]
+            if delta_pointer:
+                symbol = self.buffer[self.pointers[-2]]
+            else:
+                symbol = "$"
+
+            return "(" + str(self.states[-2]) + ", " + symbol + ") -> " + str(self.states[-1])
+        else:
+            return str(self.states[-1])
+
+    def __str__(self):
+        spaces = ' '.join(['' for _ in range(16)])
+        string = ' '.join(self.buffer) + spaces + \
+                 "{:30}".format("state = [" + self._state_transition() + "]") + "\n"
+        string += ' '.join([' ' if i != self.pointer() else '^' for i in range(self.pointer() + 1)])
+
+        return string
+
+    def __repr__(self):
+        return self.__str__()
+
 
 # --------------------------------------------------------------------
 #
@@ -95,7 +119,7 @@ class Transition:
         if tape.state() == self.source:
             self._consume(tape)
         else:
-            tape.error = True
+            tape.done = True
 
         return tape
 
@@ -122,7 +146,6 @@ class State:
             self.prefix = state.prefix
             self.number = state.number
 
-        # self.name = "$" + self.prefix + "_" + str(self.number) + "$"
         self.name = self.prefix + str(self.number)
 
     def __hash__(self):
@@ -189,11 +212,10 @@ class Delta:
     def __call__(self, tape):
         if tape.state() not in self.transitions:
             parsed = tape.copy()
-            parsed.error = True
+            parsed.done = True
             return {parsed}
         else:
             consumers = self.transitions[tape.state()]
-
             parsed = set()
             for consumer in consumers:
                 parsed.add(consumer(tape.copy()))
