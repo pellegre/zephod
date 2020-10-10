@@ -12,8 +12,20 @@ class NullTransition(Transition):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _consume(self, tape):
-        tape.read(self.target, 0)
+    def __call__(self, tape):
+        if tape.state() == self.source:
+            tape.read(self.target, 0)
+
+            if not len(tape.head()):
+                done_tape = tape.copy()
+                done_tape.done = True
+
+                return {tape, done_tape}
+
+        else:
+            tape.done = True
+
+        return tape
 
     def symbol(self):
         return NullTransition.SYMBOL
@@ -60,34 +72,44 @@ class Automata:
             g.add_edge(ei, ef, symbol=[symbol])
 
     def __call__(self, tape, debug=False):
-        buffers = [tape]
-        while not all(map(lambda b: b.done, buffers)):
+        buffers, consumed_in_final = [tape], [False]
+        while not all(map(lambda b: b.done, buffers)) and not (any(consumed_in_final)):
+
             parsed = set()
             for buffer in filter(lambda b: not b.done, buffers):
                 parsed.update(self.transition(buffer))
 
             buffers = list(parsed)
+            consumed_in_final = list(map(lambda b: b.state() in self.final and b.done and not len(b.head()), buffers))
 
+            ''' --------- debug mode --------- '''
             if debug:
                 columns = shutil.get_terminal_size((80, 20)).columns
                 print('-'.join(['' for _ in range(columns)]))
                 for buffer in filter(lambda b: not b.done, buffers):
                     print(buffer)
-
-        consumed_in_final = list(map(lambda b: b.state() in self.final, buffers))
+            ''' --------- debug mode --------- '''
 
         if any(consumed_in_final):
             consumed = buffers[consumed_in_final.index(True)]
+
+            ''' --------- debug mode --------- '''
             if debug:
                 print()
                 print(consumed)
+            ''' --------- debug mode --------- '''
+
             return buffers[consumed_in_final.index(True)]
 
         else:
             last = max(buffers, key=lambda b: b.pointer())
+
+            ''' --------- debug mode --------- '''
             if debug:
                 print()
                 print(last)
+            ''' --------- debug mode --------- '''
+
             return max(buffers, key=lambda b: b.pointer())
 
     def read(self, string):

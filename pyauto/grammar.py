@@ -82,20 +82,30 @@ class Grammar:
         return self.__str__()
 
     def _run_random_rule(self, string, length):
-        rules = [r for r in self.rules]
-        left = rules[random.randint(0, len(rules) - 1)]
+        rules_in_string = [r for r in self.rules if r in string]
 
+        rules_with_non_terminal, rules_with_terminal = [], []
+        for each in rules_in_string:
+            for right in self.rules[each]:
+                if any(map(lambda c: c in self.non_terminal, right)):
+                    rules_with_non_terminal.append((each, right))
+                else:
+                    rules_with_terminal.append((each, right))
+
+        rules_with_non_terminal = sorted(rules_with_non_terminal, reverse=True,
+                                         key=lambda r: sum([r.count(c) for c in self.non_terminal]))
+
+        ordered_rules = rules_with_non_terminal + rules_with_terminal
+
+        if len(string) > length or not len(rules_with_non_terminal):
+            rule = random.randint(0, len(ordered_rules) - 1)
+        else:
+            rule = random.randint(0, len(rules_with_non_terminal) - 1)
+
+        left, right = ordered_rules[rule]
         i = string.find(left)
-        while i < 0:
-            left = rules[random.randint(0, len(rules) - 1)]
-            i = string.find(left)
 
-        rule = random.randint(0, len(self.rules[left]) - 1)
-        while len(string) < length and \
-                all(map(lambda s: s in self.terminal, self.rules[left][rule])):
-            rule = random.randint(0, len(self.rules[left]) - 1)
-
-        return string[:i] + self.rules[left][rule] + string[i + len(left):]
+        return string[:i] + right + string[i + len(left):]
 
     def _sanity_check(self):
         assert self.start in self.rules
@@ -205,6 +215,9 @@ class OpenGrammar(Grammar):
     def __init__(self, start="S"):
         super().__init__(terminal=set(), non_terminal=set(), start=start)
         self.non_terminal_counter = ord('S')
+
+    def _sanity_check(self):
+        pass
 
     def get_non_terminal(self):
         non_terminal = Grammar.get_non_terminal_from_counter(self.non_terminal_counter)

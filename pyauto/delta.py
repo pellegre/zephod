@@ -91,7 +91,7 @@ class Buffer(Input):
     def __str__(self):
         spaces = ' '.join(['' for _ in range(16)])
         string = ' '.join(self.buffer) + spaces + \
-                 "{:30}".format("state = [" + self._state_transition() + "]") + "\n"
+                 "{:30}".format("state = [" + self._state_transition() + "]") + str(self.done) + "\n"
         string += ' '.join([' ' if i != self.pointer() else '^' for i in range(self.pointer() + 1)])
 
         return string
@@ -218,7 +218,15 @@ class Delta:
             consumers = self.transitions[tape.state()]
             parsed = set()
             for consumer in consumers:
-                parsed.add(consumer(tape.copy()))
+                consumed = consumer(tape.copy())
+                if isinstance(consumed, Buffer):
+                    parsed.add(consumed)
+
+                elif isinstance(consumed, set):
+                    parsed.update(consumed)
+
+                else:
+                    raise RuntimeError("got invalid buffer " + str(parsed))
 
             return parsed
 

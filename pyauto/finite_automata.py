@@ -47,7 +47,7 @@ class FDATransition(Transition):
         buffer.pointers = [pointer]
 
         parsed = self.fda(buffer)
-        if parsed.done and parsed.state() in self.fda.final and parsed.pointer() > pointer:
+        if parsed.done and parsed.state() in self.fda.final:
             tape.read(self.target, parsed.pointer() - pointer)
         else:
             tape.done = True
