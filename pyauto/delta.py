@@ -13,11 +13,11 @@ class Input:
         self.states = [State(initial)]
         self.pointers = [0]
 
-        self.done = False
+        self.error = False
 
     def __str__(self):
         string = "(pointers = " + str(self.pointers) + " , states = " + str(self.states) + ") @ "
-        string += "(done = " + str(self.done) + ") # "
+        string += "(error = " + str(self.error) + ") # "
         if not len(self.head()):
             string += "data = " + str(self.data()) + "\n"
         else:
@@ -31,7 +31,7 @@ class Input:
         obj = self._copy(initial=self.states[0])
         obj.states = self.states.copy()
         obj.pointers = self.pointers.copy()
-        obj.done = self.done
+        obj.error = self.error
 
         return obj
 
@@ -39,7 +39,7 @@ class Input:
         return self._get_data_from_pointer(self.pointer())
 
     def read(self, state, count):
-        assert not self.done
+        assert not self.error
 
         self.states.append(state)
         self.pointers.append(self.pointer() + count)
@@ -91,7 +91,7 @@ class Buffer(Input):
     def __str__(self):
         spaces = ' '.join(['' for _ in range(16)])
         string = ' '.join(self.buffer) + spaces + \
-                 "{:30}".format("state = [" + self._state_transition() + "]") + str(self.done) + "\n"
+                 "{:30}".format("state = [" + self._state_transition() + "]") + str(self.error) + "\n"
         string += ' '.join([' ' if i != self.pointer() else '^' for i in range(self.pointer() + 1)])
 
         return string
@@ -119,7 +119,7 @@ class Transition:
         if tape.state() == self.source:
             self._consume(tape)
         else:
-            tape.done = True
+            tape.error = True
 
         return tape
 
@@ -212,7 +212,7 @@ class Delta:
     def __call__(self, tape):
         if tape.state() not in self.transitions:
             parsed = tape.copy()
-            parsed.done = True
+            parsed.error = True
             return {parsed}
         else:
             consumers = self.transitions[tape.state()]

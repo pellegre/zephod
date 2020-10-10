@@ -174,7 +174,7 @@ class StackCharTransition(Transition):
             self.action(tape)
             tape.read(self.target, 1)
         else:
-            tape.done = True
+            tape.error = True
 
     def symbol(self):
         return self.character + "," + self.action.on_symbol + "/" + self.action.symbol()
@@ -190,7 +190,7 @@ class StackNullTransition(Transition):
             self.action(tape)
             tape.read(self.target, 0)
         else:
-            tape.done = True
+            tape.error = True
 
     def symbol(self):
         return NullTransition.SYMBOL + "," + self.action.on_symbol + "/" + self.action.symbol()

@@ -12,20 +12,8 @@ class NullTransition(Transition):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def __call__(self, tape):
-        if tape.state() == self.source:
-            tape.read(self.target, 0)
-
-            if not len(tape.head()):
-                done_tape = tape.copy()
-                done_tape.done = True
-
-                return {tape, done_tape}
-
-        else:
-            tape.done = True
-
-        return tape
+    def _consume(self, tape):
+        tape.read(self.target, 0)
 
     def symbol(self):
         return NullTransition.SYMBOL
@@ -71,22 +59,26 @@ class Automata:
         else:
             g.add_edge(ei, ef, symbol=[symbol])
 
+    @staticmethod
+    def is_done(buffer):
+        return len(buffer.data()) == buffer.pointer() and not buffer.error
+
     def __call__(self, tape, debug=False):
         buffers, consumed_in_final = [tape], [False]
-        while not all(map(lambda b: b.done, buffers)) and not (any(consumed_in_final)):
+        while not all(map(lambda b: b.error, buffers)) and not (any(consumed_in_final)):
 
             parsed = set()
-            for buffer in filter(lambda b: not b.done, buffers):
+            for buffer in filter(lambda b: not b.error, buffers):
                 parsed.update(self.transition(buffer))
 
             buffers = list(parsed)
-            consumed_in_final = list(map(lambda b: b.state() in self.final and b.done and not len(b.head()), buffers))
+            consumed_in_final = list(map(lambda b: b.state() in self.final and self.is_done(b), buffers))
 
             ''' --------- debug mode --------- '''
             if debug:
                 columns = shutil.get_terminal_size((80, 20)).columns
                 print('-'.join(['' for _ in range(columns)]))
-                for buffer in filter(lambda b: not b.done, buffers):
+                for buffer in filter(lambda b: not b.error, buffers):
                     print(buffer)
             ''' --------- debug mode --------- '''
 

@@ -378,38 +378,6 @@ def test_buffer():
     assert len(buffer.states) == len(buffer.data()) // 2 + 1
     assert len(buffer.pointers) == len(buffer.data()) // 2 + 1
 
-    transition = FADelta()
-    transition.add("e0", "e0", {"0", "1"})
-    transition.add("e0", "e1", {"1"})
-    transition.add("e0", "e3", {"0"})
-
-    transition.add("e1", "e2", {"1"})
-    transition.add("e2", "e2", {"0", "1"})
-
-    transition.add("e3", "e4", {"0"})
-    transition.add("e4", "e4", {"0", "1"})
-
-    final = [State("e3")]
-
-    expr = (~(Z("aa") + Z("b")) | (Z("c") + Z("d")) | ~Z("cd"))
-    transition = expr.transition
-    final = {State("z18")}
-    initial = expr.initial
-
-    buffers, accepted = [Buffer(data="aaccd", initial=initial)], None
-    while not all(map(lambda b: b.consumed and b.done, buffers)):
-        parsed = set()
-        for buffer in filter(lambda b: not b.done, buffers):
-            parsed.update(transition(buffer))
-
-        buffers = [buffer for buffer in parsed]
-
-        consumed_in_final = list(map(lambda b: b.consumed and b.done and b.state() in final, buffers))
-        if any(consumed_in_final):
-            accepted = buffers[consumed_in_final.index(True)]
-
-    assert accepted
-
 
 def test_case_16():
     expr = (~Z("aaa") | ~Z("bb") | ~Z("cd")).minimal()

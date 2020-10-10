@@ -27,7 +27,7 @@ class CharTransition(Transition):
         if len(tape.head()) and tape.head()[0] == self.character:
             tape.read(self.target, 1)
         else:
-            tape.done = True
+            tape.error = True
 
     def symbol(self):
         return self.character
@@ -47,10 +47,10 @@ class FDATransition(Transition):
         buffer.pointers = [pointer]
 
         parsed = self.fda(buffer)
-        if parsed.done and parsed.state() in self.fda.final:
+        if parsed.state() in self.fda.final:
             tape.read(self.target, parsed.pointer() - pointer)
         else:
-            tape.done = True
+            tape.error = True
 
         return tape
 
