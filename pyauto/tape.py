@@ -507,3 +507,20 @@ class FANullReadAction(InputAction):
         super().__init__(actions={
             Tape.N(0): [NoneAction(on_symbol=None)]
         })
+
+# --------------------------------------------------------------------
+#
+# action wrapper
+#
+# --------------------------------------------------------------------
+
+
+class Action:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def _get_action(self, **kwargs):
+        raise RuntimeError("_get_action not implemented")
+
+    def get(self, **kwargs):
+        return self._get_action(**self.kwargs, **kwargs)

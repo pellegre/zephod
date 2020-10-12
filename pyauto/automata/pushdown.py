@@ -1,5 +1,5 @@
 from pyauto.delta import *
-from pyauto.automata import *
+from pyauto.automata.base import *
 from pyauto.tape import *
 
 import shutil
@@ -35,17 +35,6 @@ class PDAReadTransition(Transition):
 # action wrappers
 #
 # --------------------------------------------------------------------
-
-
-class Action:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    def _get_action(self, **kwargs):
-        raise RuntimeError("_get_action not implemented")
-
-    def get(self, **kwargs):
-        return self._get_action(**self.kwargs, **kwargs)
 
 
 class Push(Action):

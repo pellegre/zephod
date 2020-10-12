@@ -1,12 +1,8 @@
-from pyauto.finite_automata import *
 from pyauto.grammar import *
-
-from functools import reduce
 
 from utils.builder import *
 
 from sympy import *
-from sympy.logic.boolalg import BooleanTrue
 
 import itertools
 import pandas

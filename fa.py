@@ -1,9 +1,7 @@
-from pyauto.finite_automata import *
-from utils.builder import *
-from pyauto.grammar import *
 from pyauto.language import *
-from pyauto.pushdown_automata import *
-from pyauto.tape import *
+from pyauto.automata.finite import *
+from pyauto.automata.pushdown import *
+from pyauto.automata.turing import *
 
 
 def nfsm_example():
@@ -26,6 +24,8 @@ def nfsm_example():
 
     AutomataPlotter.plot(nfsm)
     AutomataPlotter.plot(nfsm.minimal())
+
+    print(nfsm)
 
 
 def pda_example():
@@ -72,6 +72,8 @@ def pda_example():
 
     AutomataPlotter.plot(pda)
 
+    print(pda)
+
 
 def regex_example():
     expr = (~Z("aaa") | ~Z("bb") | (~Z("cd") + Z("ab"))).minimal()
@@ -90,11 +92,91 @@ def regex_example():
 
     AutomataPlotter.plot(fda)
 
+    print(fda)
+
+
+def turing_machine_example():
+    transition = TuringDelta()
+
+    transition.add("e0", "e1", {
+        C(0): A("a",                 move=Stay()),
+        C(1): A(Tape.BLANK, new="X", move=Right())
+    })
+
+    transition.add("e0", "e1", {
+        C(0): A("b",                 move=Stay()),
+        C(1): A(Tape.BLANK, new="X", move=Right())
+    })
+
+    transition.add("e0", "e3", {
+        C(0): A("c",                 move=Right()),
+        C(1): A(Tape.BLANK,          move=Right())
+    })
+
+    # ---
+
+    transition.add("e1", "e1", {
+        C(0): A("a",                 move=Right()),
+        C(1): A(Tape.BLANK, new="a", move=Right())
+    })
+
+    transition.add("e1", "e1", {
+        C(0): A("b",                 move=Right()),
+        C(1): A(Tape.BLANK, new="b", move=Right())
+    })
+
+    transition.add("e1", "e2", {
+        C(0): A("c",                 move=Stay()),
+        C(1): A(Tape.BLANK,          move=Left())
+    })
+
+    # ---
+
+    transition.add("e2", "e2", {
+        C(0): A("c",                 move=Stay()),
+        C(1): A("a",                 move=Left())
+    })
+
+    transition.add("e2", "e2", {
+        C(0): A("c",                 move=Stay()),
+        C(1): A("b",                 move=Left())
+    })
+
+    transition.add("e2", "e3", {
+        C(0): A("c",                 move=Right()),
+        C(1): A("X",                 move=Right())
+    })
+
+    # ---
+
+    transition.add("e3", "e3", {
+        C(0): A("b",                 move=Right()),
+        C(1): A("b",                 move=Right())
+    })
+
+    transition.add("e3", "e3", {
+        C(0): A("a",                 move=Right()),
+        C(1): A("a",                 move=Right())
+    })
+
+    transition.add("e3", "e4", {
+        C(0): A(Tape.BLANK,          move=Stay()),
+        C(1): A(Tape.BLANK,          move=Stay())
+    })
+
+    # ---
+
+    turing = TuringMachine(initial="e0", final={"e4"}, transition=transition)
+
+    turing.debug("abbabbacabbabba")
+
+    print(turing)
+
 
 def main():
     print("[+] FD ")
 
-    regex_example()
+    turing_machine_example()
 
     # grammar = OpenGrammar()
     #

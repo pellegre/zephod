@@ -23,6 +23,11 @@ class Transition:
     def symbol(self):
         raise RuntimeError("symbol not implemented")
 
+    def __str__(self):
+        return str(self.action)
+
+    def __repr__(self):
+        return self.__str__()
 
 # --------------------------------------------------------------------
 #

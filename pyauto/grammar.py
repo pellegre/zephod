@@ -1,8 +1,4 @@
-import random
-import copy
-import networkx
-
-from pyauto.finite_automata import *
+from pyauto.automata.finite import *
 
 
 class Grammar:

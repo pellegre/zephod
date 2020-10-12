@@ -1,8 +1,4 @@
-from networkx.drawing.nx_agraph import to_agraph
-
-from pyauto.delta import *
-from pyauto.automata import *
-from pyauto.pushdown_automata import *
+from pyauto.automata.pushdown import *
 
 
 import networkx

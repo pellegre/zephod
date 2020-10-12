@@ -1,10 +1,9 @@
-from pyauto.finite_automata import *
+from pyauto.automata.finite import *
 
 import pandas
 import random
 import string
 import subprocess
-import itertools
 
 
 class AutomataPlotter:

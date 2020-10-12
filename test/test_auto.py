@@ -1,8 +1,6 @@
-from pyauto.finite_automata import *
-from utils.builder import *
-from pyauto.grammar import *
 from pyauto.language import *
-from pyauto.pushdown_automata import *
+from pyauto.automata.finite import *
+from pyauto.automata.pushdown import *
 
 
 def test_case_1(inp, plotter=False, run_grammar=False):
