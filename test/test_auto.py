@@ -65,10 +65,10 @@ def test_case_1(inp, plotter=False, run_grammar=False):
 def test_case_2(inp, plotter=False, run_grammar=False):
     transition = FADelta()
     transition.add("s0", "s0", {"a"})
-    transition.add("s0", "s2", {NullTransition.SYMBOL})
+    transition.add("s0", "s2", {Transition.NULL})
     transition.add("s1", "s2", {"a", "b"})
     transition.add("s2", "s0", {"a"})
-    transition.add("s2", "s1", {NullTransition.SYMBOL})
+    transition.add("s2", "s1", {Transition.NULL})
 
     nfsm = FiniteAutomata(transition, "s0", {"s1"})
     assert nfsm.has_null_transitions()
@@ -579,6 +579,221 @@ def test_pda_case_1():
             assert pda.read(s)
 
 
+def test_transitions():
+    stack = Stack(initial="s0", data="AAABBBBBCCCCC")
+
+    pda_read = PDAReadTransition(source="s0", target="s1",
+                                 character="A", stack_action=PushStackAction(on_symbol=Stack.EMPTY, new_symbol="Z"))
+    stack = pda_read(stack)
+
+    print(stack)
+
+
+def test_input_actions():
+    inp = Input(initial="s0", data="AAABBBBBCCCCC", tapes=1)
+
+    action = InputAction(actions={
+        Tape.N(0): [WriteAction(on_symbol="A", new_symbol="D"), MoveRightAction(on_symbol="D")],
+        Tape.N(1): [WriteAction(on_symbol=Tape.BLANK, new_symbol="Z"), MoveRightAction(on_symbol="Z")]
+    })
+
+    print(inp)
+    inp = action(source="s0", target="s1", data=inp)
+    assert not inp.error
+    assert inp.tapes[Tape.N(0)].pointer() == 1
+    assert inp.tapes[Tape.N(1)].pointer() == 1
+
+    assert inp.tapes[Tape.N(0)].read() == 'A'
+    assert inp.tapes[Tape.N(1)].read() == Tape.BLANK
+
+    assert inp.state() == "s1"
+
+    print(inp)
+
+    action = InputAction(actions={
+        Tape.N(0): [MoveLeftAction(on_symbol="A")],
+        Tape.N(1): [WriteAction(on_symbol=Tape.BLANK, new_symbol="Z"), MoveLeftAction(on_symbol="Z")]
+    })
+
+    inp = action(source="s1", target="s2", data=inp)
+
+    assert not inp.error
+    assert inp.tapes[Tape.N(0)].pointer() == 0
+    assert inp.tapes[Tape.N(1)].pointer() == 0
+
+    assert inp.tapes[Tape.N(0)].read() == "D"
+    assert inp.tapes[Tape.N(1)].read() == "Z"
+
+    assert inp.state() == "s2"
+
+    print(inp)
+
+    action = InputAction(actions={
+        Tape.N(0): [NoneAction(on_symbol="D")],
+        Tape.N(1): [MoveRightAction(on_symbol="Z")]
+    })
+
+    inp = action(source="s2", target="s1", data=inp)
+
+    assert not inp.error
+    assert inp.tapes[Tape.N(0)].pointer() == 0
+    assert inp.tapes[Tape.N(1)].pointer() == 1
+
+    assert inp.tapes[Tape.N(0)].read() == "D"
+    assert inp.tapes[Tape.N(1)].read() == "Z"
+
+    assert inp.state() == "s1"
+
+    print(inp)
+
+    action = InputAction(actions={
+        Tape.N(0): [NoneAction(on_symbol="D")],
+        Tape.N(1): [MoveRightAction(on_symbol="Z")]
+    })
+
+    error_inp = action(source="s2", target="s1", data=inp)
+    assert error_inp.error
+
+    print(error_inp)
+
+    action = InputAction(actions={
+        Tape.N(0): [NoneAction(on_symbol="Z")],
+        Tape.N(1): [MoveRightAction(on_symbol="Z")]
+    })
+
+    error_inp = action(source="s1", target="s2", data=inp)
+    assert error_inp.error
+    assert isinstance(error_inp.error_action[1], NoneAction)
+    assert Tape.N(0) == error_inp.error_action[0]
+
+    print(error_inp)
+
+
+def test_stack_actions():
+    stack = Stack(initial="s0", data="AAABBBBBCCCCC")
+
+    action = PDAReadAction(on_symbol="A", stack_action=PushStackAction(on_symbol=Stack.EMPTY, new_symbol="Z"))
+    stack = action(source="s0", target="s1", data=stack)
+
+    assert not stack.error
+    assert stack.tapes[Tape.N(0)].pointer() == 1
+    assert stack.tapes[Tape.N(1)].pointer() == 1
+
+    assert stack.head() == "A"
+    assert stack.peek() == "Z"
+
+    assert stack.state() == "s1"
+
+    print(stack)
+
+    action = PDAReadAction(on_symbol="A", stack_action=PushStackAction(on_symbol="Z", new_symbol="Z"))
+    stack = action(source="s1", target="s1", data=stack)
+
+    assert not stack.error
+    assert stack.tapes[Tape.N(0)].pointer() == 2
+    assert stack.tapes[Tape.N(1)].pointer() == 2
+
+    assert stack.head() == "A"
+    assert stack.peek() == "Z"
+
+    assert stack.state() == "s1"
+
+    print(stack)
+
+    action = PDANullAction(stack_action=PushStackAction(on_symbol="Z", new_symbol="Y"))
+    stack = action(source="s1", target="s1", data=stack)
+
+    assert not stack.error
+    assert stack.tapes[Tape.N(0)].pointer() == 2
+    assert stack.tapes[Tape.N(1)].pointer() == 3
+
+    assert stack.head() == "A"
+    assert stack.peek() == "Y"
+
+    assert stack.state() == "s1"
+
+    print(stack)
+
+    action = PDANullAction(stack_action=PopStackAction(on_symbol="Y"))
+    stack = action(source="s1", target="s1", data=stack)
+
+    assert not stack.error
+    assert stack.tapes[Tape.N(0)].pointer() == 2
+    assert stack.tapes[Tape.N(1)].pointer() == 2
+
+    assert stack.head() == "A"
+    assert stack.peek() == "Z"
+
+    assert stack.state() == "s1"
+
+    print(stack)
+
+    action = PDANullAction(stack_action=PopStackAction(on_symbol="Y"))
+    stack_error = action(source="s1", target="s1", data=stack)
+
+    assert stack_error.error
+
+    print(stack_error)
+
+    action = PDAReadAction(on_symbol="A", stack_action=NullStackAction(on_symbol="Z"))
+    stack = action(source="s1", target="s1", data=stack)
+
+    assert not stack.error
+    assert stack.tapes[Tape.N(0)].pointer() == 3
+    assert stack.tapes[Tape.N(1)].pointer() == 2
+
+    assert stack.head() == "B"
+    assert stack.peek() == "Z"
+
+    assert stack.state() == "s1"
+
+    print(stack)
+
+
+def test_buffer_actions():
+    buffer = Buffer(initial="s0", data="AAABBBBBCCCCC")
+
+    action = FAReadAction(on_symbol="A")
+    buffer = action(source="s0", target="s1", data=buffer)
+
+    assert not buffer.error
+    assert buffer.tapes[Tape.N(0)].pointer() == 1
+    assert buffer.pointer() == 1
+
+    assert buffer.head() == "A"
+
+    assert buffer.state() == "s1"
+
+    print(buffer)
+
+    action = FANullReadAction()
+    buffer = action(source="s1", target="s1", data=buffer)
+
+    assert not buffer.error
+    assert buffer.tapes[Tape.N(0)].pointer() == 1
+    assert buffer.pointer() == 1
+
+    assert buffer.head() == "A"
+
+    assert buffer.state() == "s1"
+
+    print(buffer)
+
+    action = FAReadAction(on_symbol="B")
+    buffer_error = action(source="s1", target="s1", data=buffer)
+
+    assert buffer_error.error
+
+    print(buffer_error)
+
+    action = FANullReadAction()
+    buffer_error = action(source="s3", target="s1", data=buffer)
+
+    assert buffer_error.error
+
+    print(buffer_error)
+
+
 def run_cases():
     print("[+] running test case 1")
     assert test_case_1("00111011110", run_grammar=True)
@@ -683,6 +898,18 @@ def run_cases():
 
     print("[+] running test case PDA 1")
     test_pda_case_1()
+
+    print("[+] testing input actions")
+    test_input_actions()
+
+    print("[+] testing buffer actions")
+    test_buffer_actions()
+
+    print("[+] testing stack actions")
+    test_stack_actions()
+
+    print("[+] testing transitions")
+    test_transitions()
 
 
 run_cases()

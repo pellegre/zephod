@@ -44,7 +44,7 @@ class Grammar:
                         non_terminal_left.append(g.nodes[left]["non_terminal"])
 
                     if node in automata.final:
-                        grammar.add("S", NullTransition.SYMBOL)
+                        grammar.add("S", Transition.NULL)
 
                 else:
                     non_terminal_left = [g.nodes[left]["non_terminal"]]
@@ -118,7 +118,7 @@ class Grammar:
         right_sanity = list(map(lambda s: s in self.terminal or s in self.non_terminal or s == self.start, right))
 
         assert sum(left_sanity) == len(left)
-        if right != NullTransition.SYMBOL:
+        if right != Transition.NULL:
             assert sum(right_sanity) == len(right)
 
         if left not in self.rules:
@@ -170,8 +170,8 @@ class Grammar:
 
     def simplify_null(self):
         for each in list(self.rules):
-            if each != self.start and NullTransition.SYMBOL in self.rules[each]:
-                self.rules[each].remove(NullTransition.SYMBOL)
+            if each != self.start and Transition.NULL in self.rules[each]:
+                self.rules[each].remove(Transition.NULL)
 
                 for other in list(self.rules):
                     right = self.rules[other]
@@ -180,7 +180,7 @@ class Grammar:
                         if len(replace_null):
                             self.add(other, replace_null)
                         else:
-                            self.add(other, NullTransition.SYMBOL)
+                            self.add(other, Transition.NULL)
                             self.simplify_null()
 
     def remove_start_from_right(self):
@@ -192,7 +192,7 @@ class Grammar:
                 if self.start in each:
                     self.rules[self.start].remove(each)
 
-                if each != NullTransition.SYMBOL:
+                if each != Transition.NULL:
                     self.add(new_symbol, each.replace(self.start, new_symbol))
 
     def simplify(self):
@@ -208,7 +208,7 @@ class Grammar:
         while any(map(lambda s: s in self.non_terminal, string)):
             string = self._run_random_rule(string, length)
 
-        return string.replace(NullTransition.SYMBOL, "")
+        return string.replace(Transition.NULL, "")
 
 
 class OpenGrammar(Grammar):

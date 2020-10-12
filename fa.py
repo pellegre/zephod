@@ -3,6 +3,29 @@ from utils.builder import *
 from pyauto.grammar import *
 from pyauto.language import *
 from pyauto.pushdown_automata import *
+from pyauto.tape import *
+
+
+def nfsm_example():
+    transition = FADelta()
+    transition.add("e0", "e0", {"0", "1"})
+    transition.add("e0", "e1", {"1"})
+    transition.add("e0", "e3", {"0"})
+
+    transition.add("e1", "e2", {"1"})
+    transition.add("e2", "e2", {"0", "1"})
+
+    transition.add("e3", "e4", {"0"})
+    transition.add("e4", "e4", {"0", "1"})
+
+    nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
+
+    g = Grammar.build_from_finite_automata(nfsm.minimal())
+    data = g(length=16)
+    nfsm.debug(data)
+
+    AutomataPlotter.plot(nfsm)
+    AutomataPlotter.plot(nfsm.minimal())
 
 
 def pda_example():
@@ -16,32 +39,32 @@ def pda_example():
 
     transition.add("z0", "z0",
                    {
-                        ("a", Stack.EMPTY): Push(obj="X"),
-                        ("a", "X"): Push(obj="X"),
-                        ("a", "Y"): Push(obj="X"),
+                       ("a", Stack.EMPTY): Push(obj="X"),
+                       ("a", "X"): Push(obj="X"),
+                       ("a", "Y"): Push(obj="X"),
 
-                        ("b", Stack.EMPTY): Push(obj="Y"),
-                        ("b", "Y"): Push(obj="Y"),
-                        ("b", "X"): Push(obj="Y")
-                    })
+                       ("b", Stack.EMPTY): Push(obj="Y"),
+                       ("b", "Y"): Push(obj="Y"),
+                       ("b", "X"): Push(obj="Y")
+                   })
 
     transition.add("z0", "z1",
                    {
-                        ("c", Stack.EMPTY): Null(),
-                        ("c", "X"): Null(),
-                        ("c", "Y"): Null()
-                    })
+                       ("c", Stack.EMPTY): Null(),
+                       ("c", "X"): Null(),
+                       ("c", "Y"): Null()
+                   })
 
     transition.add("z1", "z1",
                    {
-                        ("a", "X"): Pop(),
-                        ("b", "Y"): Pop(),
-                    })
+                       ("a", "X"): Pop(),
+                       ("b", "Y"): Pop(),
+                   })
 
     transition.add("z1", "z2",
                    {
-                        ("$", Stack.EMPTY): Null()
-                    })
+                       ("$", Stack.EMPTY): Null()
+                   })
 
     pda = PushdownAutomata(transition, initial="z0", final={"z2"})
 
@@ -51,13 +74,13 @@ def pda_example():
 
 
 def regex_example():
-    expr = (~Z("aaa") | ~Z("bb") | ~Z("cd")).minimal()
+    expr = (~Z("aaa") | ~Z("bb") | (~Z("cd") + Z("ab"))).minimal()
 
     transition = FADelta()
     transition.add("z0", "z1", {~Z("aaa")})
     transition.add("z1", "z2", {~Z("bb")})
-    transition.add("z2", "y1", {NullTransition.SYMBOL})
-    transition.add("y1", "z3", {~Z("cd")})
+    transition.add("z2", "y1", {Transition.NULL})
+    transition.add("y1", "z3", {(~Z("cd") + Z("ab"))})
 
     fda = FiniteAutomata(transition, initial="z0", final={"z0", "z1", "z2", "z3"})
 
@@ -70,6 +93,8 @@ def regex_example():
 
 def main():
     print("[+] FD ")
+
+    regex_example()
 
     # grammar = OpenGrammar()
     #
@@ -88,3 +113,6 @@ def main():
     # print(grammar(length=10))
     #
     # exit()
+
+
+main()

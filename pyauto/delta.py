@@ -1,127 +1,24 @@
 import re
 import random
 
-# --------------------------------------------------------------------
-#
-# input buffer
-#
-# --------------------------------------------------------------------
-
-
-class Input:
-    def __init__(self, initial):
-        self.states = [State(initial)]
-        self.pointers = [0]
-
-        self.error = False
-
-    def __str__(self):
-        string = "(pointers = " + str(self.pointers) + " , states = " + str(self.states) + ") @ "
-        string += "(error = " + str(self.error) + ") # "
-        if not len(self.head()):
-            string += "data = " + str(self.data()) + "\n"
-        else:
-            string += "head = " + str(self.head()) + " (of " + str(self.data()) + ")\n"
-        return string
-
-    def __repr__(self):
-        return self.__str__()
-
-    def copy(self):
-        obj = self._copy(initial=self.states[0])
-        obj.states = self.states.copy()
-        obj.pointers = self.pointers.copy()
-        obj.error = self.error
-
-        return obj
-
-    def head(self):
-        return self._get_data_from_pointer(self.pointer())
-
-    def read(self, state, count):
-        assert not self.error
-
-        self.states.append(state)
-        self.pointers.append(self.pointer() + count)
-
-        assert len(self.states) == len(self.pointers)
-
-    def state(self):
-        return self.states[-1]
-
-    def pointer(self):
-        return self.pointers[-1]
-
-    def _get_data_from_pointer(self, pointer):
-        raise RuntimeError("_get_data_from_pointer not implemented")
-
-    def _copy(self, **kwargs):
-        raise RuntimeError("_copy not implemented")
-
-    def data(self):
-        raise RuntimeError("data not implemented")
-
-
-class Buffer(Input):
-    def __init__(self, data, **kwargs):
-        self.buffer = data
-        super().__init__(**kwargs)
-
-    def data(self):
-        return self.buffer
-
-    def _copy(self, **kwargs):
-        return Buffer(data=self.data(), **kwargs)
-
-    def _get_data_from_pointer(self, pointer):
-        return self.buffer[pointer:]
-
-    def _state_transition(self):
-        if len(self.states) > 1:
-            delta_pointer = self.pointer() - self.pointers[-2]
-            if delta_pointer:
-                symbol = self.buffer[self.pointers[-2]]
-            else:
-                symbol = "$"
-
-            return "(" + str(self.states[-2]) + ", " + symbol + ") -> " + str(self.states[-1])
-        else:
-            return str(self.states[-1])
-
-    def __str__(self):
-        spaces = ' '.join(['' for _ in range(16)])
-        string = ' '.join(self.buffer) + spaces + \
-                 "{:30}".format("state = [" + self._state_transition() + "]") + str(self.error) + "\n"
-        string += ' '.join([' ' if i != self.pointer() else '^' for i in range(self.pointer() + 1)])
-
-        return string
-
-    def __repr__(self):
-        return self.__str__()
-
 
 # --------------------------------------------------------------------
 #
-# transitions
+# transition
 #
 # --------------------------------------------------------------------
 
 
 class Transition:
-    def __init__(self, source, target):
-        self.source = State(source)
-        self.target = State(target)
+    NULL = "$"
 
-    def _consume(self, tape):
-        raise RuntimeError("_check_done not implemented")
+    def __init__(self, source, target, action):
+        self.source = source
+        self.target = target
+        self.action = action
 
     def __call__(self, tape):
-        if tape.state() == self.source:
-            self._consume(tape)
-        else:
-            tape.error = True
-
-        return tape
+        return self.action(self.source, self.target, tape)
 
     def symbol(self):
         raise RuntimeError("symbol not implemented")
@@ -218,15 +115,12 @@ class Delta:
             consumers = self.transitions[tape.state()]
             parsed = set()
             for consumer in consumers:
-                consumed = consumer(tape.copy())
-                if isinstance(consumed, Buffer):
-                    parsed.add(consumed)
+                consumed = consumer(tape)
 
-                elif isinstance(consumed, set):
+                if isinstance(consumed, set):
                     parsed.update(consumed)
-
                 else:
-                    raise RuntimeError("got invalid buffer " + str(parsed))
+                    parsed.add(consumed)
 
             return parsed
 

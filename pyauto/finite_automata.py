@@ -13,52 +13,84 @@ import shutil
 
 # --------------------------------------------------------------------
 #
-# transition function
+# finite automata transitions
 #
 # --------------------------------------------------------------------
 
+class FANullTransition(Transition):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs, action=FANullReadAction())
 
-class CharTransition(Transition):
+    def symbol(self):
+        return Transition.NULL
+
+
+class FAReadTransition(Transition):
     def __init__(self, character, **kwargs):
+        super().__init__(**kwargs, action=FAReadAction(on_symbol=character))
         self.character = character
-        super().__init__(**kwargs)
-
-    def _consume(self, tape):
-        if len(tape.head()) and tape.head()[0] == self.character:
-            tape.read(self.target, 1)
-        else:
-            tape.error = True
 
     def symbol(self):
         return self.character
 
 
-class FDATransition(Transition):
-    def __init__(self, fda, **kwargs):
-        super().__init__(**kwargs)
+class RegexTapeAction(TapeAction):
+    def __init__(self, fda):
+        super().__init__(on_symbol=None)
         self.fda = fda
 
-    def __call__(self, tape):
+    def action(self, tape: Tape):
         pointer = tape.pointer()
 
-        buffer = tape.copy()
+        parsed = self.fda(Buffer(data=tape.data(), initial=self.fda.initial, pointer=pointer))
 
-        buffer.states = [self.fda.initial]
-        buffer.pointers = [pointer]
-
-        parsed = self.fda(buffer)
         if parsed.state() in self.fda.final:
-            tape.read(self.target, parsed.pointer() - pointer)
-        else:
-            tape.error = True
+            delta = parsed.pointer() - pointer
 
-        return tape
+            if not delta:
+                tape.none()
+
+            for move in range(delta):
+                tape.right()
+
+    def __str__(self):
+        if self.fda.regex:
+            return self.fda.regex
+        else:
+            return str(hex(id(self)))
+
+
+class FARegexAction(InputAction):
+    def __init__(self, fda):
+        self.fda = fda
+
+        super().__init__(actions={
+            Tape.N(0): [RegexTapeAction(fda=self.fda)]
+        })
+
+    def __str__(self):
+        if self.fda.regex:
+            return self.fda.regex
+        else:
+            return str(hex(id(self)))
+
+
+class FDATransition(Transition):
+    def __init__(self, fda, **kwargs):
+        super().__init__(**kwargs, action=FARegexAction(fda=fda))
+        self.fda = fda
 
     def symbol(self):
         if self.fda.regex:
             return self.fda.regex
         else:
             return str(hex(id(self)))
+
+# --------------------------------------------------------------------
+#
+# FA delta function
+#
+# --------------------------------------------------------------------
 
 
 class FADelta(Delta):
@@ -71,12 +103,12 @@ class FADelta(Delta):
 
         transition_symbols = []
         for s in symbols:
-            if s is NullTransition.SYMBOL:
-                transition = NullTransition(source=source, target=target)
+            if s is Transition.NULL:
+                transition = FANullTransition(source=source, target=target)
                 self.transitions[source].append(transition)
 
             elif isinstance(s, str) and len(s) == 1:
-                transition = CharTransition(character=s, source=source, target=target)
+                transition = FAReadTransition(character=s, source=source, target=target)
                 self.transitions[source].append(transition)
 
             elif isinstance(s, FiniteAutomata):
@@ -118,14 +150,14 @@ class FiniteAutomata(Automata):
         transition.join(this.transition)
         transition.join(other.transition)
 
-        transition.add(self.initial, this.initial, NullTransition.SYMBOL)
-        transition.add(self.initial, other.initial, NullTransition.SYMBOL)
+        transition.add(self.initial, this.initial, Transition.NULL)
+        transition.add(self.initial, other.initial, Transition.NULL)
 
         final = self.initial.prefix + str(other.transition.max_state().number + 1)
         for fe in this.final:
-            transition.add(fe, final, NullTransition.SYMBOL)
+            transition.add(fe, final, Transition.NULL)
         for fe in other.final:
-            transition.add(fe, final, NullTransition.SYMBOL)
+            transition.add(fe, final, Transition.NULL)
 
         fda = FiniteAutomata(transition, self.initial, {final})
         fda.regex = "(" + str(self.regex) + " + " + str(p.regex) + ")"
@@ -138,13 +170,13 @@ class FiniteAutomata(Automata):
 
         transition = FADelta()
         transition.join(this.transition)
-        transition.add(self.initial, this.initial, NullTransition.SYMBOL)
-        transition.add(self.initial, final, NullTransition.SYMBOL)
+        transition.add(self.initial, this.initial, Transition.NULL)
+        transition.add(self.initial, final, Transition.NULL)
 
         for fe in this.final:
-            transition.add(fe, final, NullTransition.SYMBOL)
+            transition.add(fe, final, Transition.NULL)
             if fe != this.initial:
-                transition.add(fe, this.initial, NullTransition.SYMBOL)
+                transition.add(fe, this.initial, Transition.NULL)
 
         fda = FiniteAutomata(transition, self.initial, {final})
 
@@ -163,7 +195,7 @@ class FiniteAutomata(Automata):
         transition.join(other.transition)
 
         for fe in self.final:
-            transition.add(fe, other.initial, NullTransition.SYMBOL)
+            transition.add(fe, other.initial, Transition.NULL)
 
         fda = FiniteAutomata(transition, self.initial, other.final)
         fda.regex = str(self.regex) + str(p.regex)
@@ -177,11 +209,11 @@ class FiniteAutomata(Automata):
 
                 in_symbol = []
                 for edge in self.g.in_edges(each):
-                    in_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
+                    in_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != Transition.NULL]
 
                 out_symbol = []
                 for edge in self.g.out_edges(each):
-                    out_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != NullTransition.SYMBOL]
+                    out_symbol += [s for s in self._get_symbol_from_edge(self.g, edge) if s != Transition.NULL]
 
                 if len(in_symbol) >= 1 and not len(out_symbol):
                     important_nodes.append(each)
@@ -210,7 +242,7 @@ class FiniteAutomata(Automata):
             self.epsilon_closure[initial].add(node)
 
         for edge in self.g.out_edges(node):
-            if NullTransition.SYMBOL in self._get_symbol_from_edge(self.g, edge):
+            if Transition.NULL in self._get_symbol_from_edge(self.g, edge):
                 self.epsilon_closure[initial].add(node)
                 if edge[1] not in self.epsilon_closure[initial]:
                     self._build_epsilon_closure(initial, edge[1])
@@ -329,7 +361,7 @@ class FiniteAutomata(Automata):
             pi_global = copy.deepcopy(pi_next)
             self.minimization_steps[step_number] = {"pi": pi_next, "delta": {}}
 
-            for symbol in filter(lambda s: s != NullTransition.SYMBOL, self.transition.alphabet):
+            for symbol in filter(lambda s: s != Transition.NULL, self.transition.alphabet):
                 pi_current, pi_next = pi_next, []
 
                 for pi in pi_current:
@@ -429,7 +461,7 @@ class FiniteAutomata(Automata):
 
             if len(out_symbol) != len(set(out_symbol)):
                 is_ndfa = True
-            elif len(out_symbol) > 1 and NullTransition.SYMBOL in out_symbol:
+            elif len(out_symbol) > 1 and Transition.NULL in out_symbol:
                 is_ndfa = True
 
         return is_ndfa
@@ -447,7 +479,7 @@ class FiniteAutomata(Automata):
         for p in self.epsilon_closure:
             for eclose in filter(lambda state: state in self.transition.delta, self.epsilon_closure[p]):
                 for q in self.epsilon_closure:
-                    for symbol in filter(lambda s: s != NullTransition.SYMBOL, self.transition.delta[eclose]):
+                    for symbol in filter(lambda s: s != Transition.NULL, self.transition.delta[eclose]):
                         if q in self.transition.delta[eclose][symbol]:
                             self._add_edge_to_graph(g, p, q, symbol)
 
@@ -471,7 +503,7 @@ class FiniteAutomata(Automata):
 
     def has_null_transitions(self):
         for edge in self.g.edges:
-            if NullTransition.SYMBOL in self._get_symbol_from_edge(self.g, edge):
+            if Transition.NULL in self._get_symbol_from_edge(self.g, edge):
                 return True
 
         return False
@@ -495,7 +527,7 @@ class FiniteAutomata(Automata):
 
     def read(self, string):
         buffer = self(Buffer(data=string, initial=self.initial))
-        return buffer.state() in self.final and not len(buffer.head())
+        return buffer.state() in self.final and self.is_done(buffer)
 
     def debug(self, string):
         buffer = Buffer(data=string, initial=self.initial)
@@ -515,7 +547,7 @@ class FiniteAutomata(Automata):
         print()
         buffer = self(buffer, debug=True)
 
-        accepted = buffer.state() in self.final and not len(buffer.head())
+        accepted = buffer.state() in self.final and self.is_done(buffer)
         print()
         print("{:25}".format("accepted ---->  (" + str(accepted) + ")"))
         print()
@@ -541,7 +573,7 @@ class Z(FiniteAutomata):
             transition.add("z" + str(state), "z" + str(state + 1), z)
             state += 1
             if i < len(expression) - 1:
-                transition.add("z" + str(state), "z" + str(state + 1), NullTransition.SYMBOL)
+                transition.add("z" + str(state), "z" + str(state + 1), Transition.NULL)
                 state += 1
 
         initial = "z0"

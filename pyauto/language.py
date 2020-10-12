@@ -36,7 +36,8 @@ class Constraint:
     def __call__(self, state, character):
         assert self.fda
 
-        buffers = list(self.fda.transition(Buffer(data=character, initial=state)))
+        buffers = list(self.fda.transition(Buffer(data=character, initial=State(state))))
+
         non_error_states = list(map(lambda b: not b.error, buffers))
 
         if sum(non_error_states):

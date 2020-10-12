@@ -1,22 +1,9 @@
-from pyauto.delta import *
 from networkx.drawing.nx_agraph import to_agraph
+from pyauto.delta import *
+from pyauto.tape import *
 
 import networkx
-
 import shutil
-
-
-class NullTransition(Transition):
-    SYMBOL = "$"
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def _consume(self, tape):
-        tape.read(self.target, 0)
-
-    def symbol(self):
-        return NullTransition.SYMBOL
 
 
 class Automata:
@@ -61,10 +48,10 @@ class Automata:
 
     @staticmethod
     def is_done(buffer):
-        return len(buffer.data()) == buffer.pointer() and not buffer.error
+        return buffer.head() == Tape.BLANK and not buffer.error
 
     def __call__(self, tape, debug=False):
-        buffers, consumed_in_final = [tape], [False]
+        buffers, consumed_in_final = [tape], [tape.state() in self.final and self.is_done(tape)]
         while not all(map(lambda b: b.error, buffers)) and not (any(consumed_in_final)):
 
             parsed = set()
@@ -91,18 +78,12 @@ class Automata:
                 print(consumed)
             ''' --------- debug mode --------- '''
 
-            return buffers[consumed_in_final.index(True)]
+            return consumed
 
         else:
             last = max(buffers, key=lambda b: b.pointer())
 
-            ''' --------- debug mode --------- '''
-            if debug:
-                print()
-                print(last)
-            ''' --------- debug mode --------- '''
-
-            return max(buffers, key=lambda b: b.pointer())
+            return last
 
     def read(self, string):
         raise RuntimeError("read not implemented")
@@ -161,7 +142,7 @@ class Automata:
 
         symbol_colors = {}
         for symbol in sorted(list(self.transition.alphabet)):
-            if symbol not in symbol_colors and NullTransition.SYMBOL not in symbol:
+            if symbol not in symbol_colors and Transition.NULL not in symbol:
                 symbol_colors[symbol] = colors.pop(0)
 
                 if not len(colors):
@@ -171,9 +152,9 @@ class Automata:
 
             if labels:
                 a.add_node(symbol, color=symbol_colors[symbol])
-                if NullTransition.SYMBOL in symbol and tex:
+                if Transition.NULL in symbol and tex:
                     node = a.get_node(symbol)
-                    node.attr["texlbl"] = "$" + symbol.replace(NullTransition.SYMBOL, "\epsilon") + "$"
+                    node.attr["texlbl"] = "$" + symbol.replace(Transition.NULL, "\epsilon") + "$"
 
         initial = a.get_node(str(self.initial))
         initial.attr["root"] = "true"
@@ -218,13 +199,13 @@ class Automata:
                 symbol = edges[ei][ef]
 
                 edge = a.get_edge(str(ei), str(ef))
-                if NullTransition.SYMBOL in symbol and tex:
-                    edge.attr["texlbl"] = "$" + symbol.replace(NullTransition.SYMBOL, "\epsilon") + "$"
+                if Transition.NULL in symbol and tex:
+                    edge.attr["texlbl"] = "$" + symbol.replace(Transition.NULL, "\epsilon") + "$"
                     edge.attr["label"] = "  "
                 else:
                     edge.attr["label"] = symbol
 
-                if NullTransition.SYMBOL in symbol:
+                if Transition.NULL in symbol:
                     edge.attr["fontcolor"] = null_color
                     edge.attr["color"] = null_color
                 else:
