@@ -35,6 +35,7 @@ class Transition:
 #
 # --------------------------------------------------------------------
 
+
 class State:
     def __init__(self, state):
         if isinstance(state, str):

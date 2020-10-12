@@ -95,6 +95,17 @@ class TuringDelta(Delta):
 
         return transition_symbols
 
+    def add_tape(self):
+        if not self.tapes:
+            raise RuntimeError("delta function not initialized")
+
+        for each in self.transitions:
+            for transition in self.transitions[each]:
+                print(transition.action, each)
+                transition.action.actions[Tape.N(self.tapes)] = [NoneAction(on_symbol=Tape.BLANK)]
+
+        self.tapes += 1
+
 
 # --------------------------------------------------------------------
 #
@@ -120,10 +131,11 @@ class TuringMachine(Automata):
 
     def debug(self, string):
         buffer = Input(data=string, initial=self.initial, tapes=self.transition.tapes - 1)
+
         columns = shutil.get_terminal_size((80, 20)).columns
 
         size = len(str(buffer).split('\n')[0])
-        right = size - (2 * len(string) + 14)
+        right = size - (2 * len(buffer.data()) + 14)
 
         print()
         print(("{:" + str(size - right) + "}").format("initial (" + str(self.initial) + ")") +
