@@ -85,7 +85,8 @@ class TuringDelta(Delta):
             action = delta[tape]
             actions[tape] = action.get()
 
-            self.alphabet.add(action.symbol)
+            if action.symbol != Tape.BLANK:
+                self.alphabet.add(action.symbol)
 
         transition = Transition(source=source, target=target, action=InputAction(actions=actions))
         self.transitions[source].append(transition)

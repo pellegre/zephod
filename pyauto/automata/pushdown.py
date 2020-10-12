@@ -89,20 +89,25 @@ class PDADelta(Delta):
 
             if (len(stack_symbol) == 1 or stack_symbol == Stack.EMPTY) and len(symbol) == 1 and \
                     isinstance(symbol, str) and isinstance(stack_symbol, str):
+
+                stack_action = action.get(on_symbol=stack_symbol)
+
                 if symbol is Transition.NULL:
                     transition = PDANullTransition(source=source, target=target,
-                                                   stack_action=action.get(on_symbol=stack_symbol))
+                                                   stack_action=stack_action)
                     self.transitions[source].append(transition)
+
                 else:
                     transition = PDAReadTransition(source=source, target=target, character=symbol,
-                                                   stack_action=action.get(on_symbol=stack_symbol))
+                                                   stack_action=stack_action)
                     self.transitions[source].append(transition)
+
+                    self.alphabet.add(symbol)
             else:
                 raise RuntimeError("can't handle transition " + str(transition))
 
             transition_symbols.append(transition.symbol())
 
-            self.alphabet.add(transition.symbol())
             self.stack_alphabet.add(stack_symbol)
 
         return transition_symbols
