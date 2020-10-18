@@ -49,9 +49,8 @@ def test_case_1(inp, plotter=False, run_grammar=False):
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
 
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
+        for each in grammar_from_fda.enumerate(length=10):
+            assert minimized.read(each)
 
     if plotter:
         AutomataPlotter.plot(nfsm)
@@ -88,9 +87,8 @@ def test_case_2(inp, plotter=False, run_grammar=False):
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(stripped)
 
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
+        for each in grammar_from_fda.enumerate(length=10):
+            assert minimized.read(each)
 
     if plotter:
         AutomataPlotter.plot(nfsm)
@@ -140,9 +138,8 @@ def test_case_5(inp, plotter=False, run_grammar=False):
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
+        for each in grammar_from_fda.enumerate(length=8):
+            assert minimized.read(each)
 
     if plotter:
         AutomataPlotter.plot(expr)
@@ -170,9 +167,8 @@ def test_case_9(inp, plotter=False, run_grammar=False):
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
+        for each in grammar_from_fda.enumerate(length=10):
+            assert minimized.read(each)
 
     if plotter:
         AutomataPlotter.plot(dfsm)
@@ -198,9 +194,8 @@ def test_case_11(inp, plotter=False, run_grammar=False):
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
 
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert nfsm.read(grammar_from_fda(length=j))
+        for each in grammar_from_fda.enumerate(length=10):
+            assert nfsm.read(each)
 
     assert not nfsm.has_null_transitions()
     dfsm = nfsm.get_deterministic_automata()
@@ -249,9 +244,9 @@ def test_case_12(inp, plotter=False, run_grammar=False):
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
+        for each in grammar_from_fda.enumerate(length=10):
+            assert minimized.read(each)
+            assert pda.read(each)
 
     if plotter:
         AutomataPlotter.plot(minimized)
@@ -275,9 +270,8 @@ def test_case_13(inp, plotter=False, run_grammar=False):
     if run_grammar:
         grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
-        for i in range(500):
-            for j in [1, 5, 10, 20, 30]:
-                assert minimized.read(grammar_from_fda(length=j))
+        for each in grammar_from_fda.enumerate(length=10):
+            assert minimized.read(each)
 
     if plotter:
         AutomataPlotter.plot(expr)
@@ -306,15 +300,13 @@ def test_case_14(plotter=False, run_grammar=False):
 
     fda = g.get_finite_automata()
 
-    for i in range(500):
-        for j in [1, 5, 10, 20, 30]:
-            assert fda.read(g(length=j))
+    for each in g.enumerate(length=10):
+        assert fda.read(each)
 
     grammar_from_fda = Grammar.build_from_finite_automata(fda)
 
-    for i in range(500):
-        for j in [1, 5, 10, 20, 30]:
-            assert fda.read(grammar_from_fda(length=j))
+    for each in grammar_from_fda.enumerate(length=10):
+        assert fda.read(each)
 
     if plotter:
         AutomataPlotter.plot(fda)
@@ -336,12 +328,11 @@ def test_case_15(plotter=False):
     grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
     got_null_string = False
-    for i in range(500):
-        for j in [1, 5, 10, 20, 30]:
-            w = grammar_from_fda(length=j)
-            assert minimized.read(w)
-            if not len(w):
-                got_null_string = True
+
+    for w in grammar_from_fda.enumerate(length=10):
+        assert minimized.read(w)
+        if not len(w):
+            got_null_string = True
 
     assert got_null_string
 
@@ -389,10 +380,8 @@ def test_case_16():
 
     grammar_from_fda = Grammar.build_from_finite_automata(expr)
 
-    for i in range(500):
-        for j in [1, 5, 10, 20, 30]:
-            s = grammar_from_fda(length=j)
-            assert fda.read(s)
+    for each in grammar_from_fda.enumerate(length=10):
+        assert fda.read(each)
 
 
 def test_constraints():
@@ -571,10 +560,8 @@ def test_pda_case_1():
 
     pda = PushdownAutomata(transition, initial="z0", final={"z2"})
 
-    for i in range(500):
-        for j in [1, 5, 10, 20, 30]:
-            s = grammar(length=j)
-            assert pda.read(s)
+    for each in grammar.enumerate(length=10):
+        assert pda.read(each)
 
 
 def test_transitions():
@@ -792,6 +779,57 @@ def test_buffer_actions():
     print(buffer_error)
 
 
+def test_case_1_flang():
+    a, b, c = symbols("a b c")
+    n = symbols("n")
+    lang = LanguageFormula(expression=[a**n, b**n, c**n], conditions=[n > 0])
+    print(lang.enumerate_strings(length=9))
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "A")
+
+    grammar.add("A", "aABC")
+    grammar.add("A", "aBC")
+
+    grammar.add("CB", "BC")
+
+    grammar.add("aB", "ab")
+    grammar.add("bB", "bb")
+    grammar.add("bC", "bc")
+    grammar.add("cC", "cc")
+
+    assert lang.check_grammar(grammar, length=15)
+
+
+def test_case_2_flang():
+    a, b, c, d = symbols("a b c d")
+    n, j = symbols("n j")
+    lang = LanguageFormula(expression=[a**n, b**j, c**(2*n), d**j], conditions=[n >= 0, j > 0])
+
+    print(lang.enumerate_strings(length=15))
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "A")
+
+    grammar.add("A", "aAC")
+    grammar.add("A", "B")
+
+    grammar.add("B", "bBD")
+    grammar.add("B", "bD")
+
+    grammar.add("DC", "CD")
+    grammar.add("bC", "bcc")
+    grammar.add("ccC",  "cccc")
+
+    grammar.add("ccD", "ccd")
+    grammar.add("dD", "dd")
+    grammar.add("bD", "bd")
+
+    assert lang.check_grammar(grammar, length=15)
+
+
 def run_cases():
     print("[+] running test case 1")
     assert test_case_1("00111011110", run_grammar=True)
@@ -908,6 +946,12 @@ def run_cases():
 
     print("[+] testing transitions")
     test_transitions()
+
+    print("[+] testing formula language 1")
+    test_case_1_flang()
+
+    print("[+] testing formula language 2")
+    test_case_2_flang()
 
 
 run_cases()

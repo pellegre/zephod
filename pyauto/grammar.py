@@ -2,6 +2,8 @@ from pyauto.automata.finite import *
 
 
 class Grammar:
+    NULL = "$"
+
     @staticmethod
     def get_non_terminal_from_counter(counter):
         return chr((counter - ord('A') - 1) % (ord('R') - ord('A') + 1) + ord('A'))
@@ -78,73 +80,52 @@ class Grammar:
         return self.__str__()
 
     def _get_rules_in_string(self, string):
-        rules, rules_in_string = [r for r in self.rules if r in string], []
+        if len(string):
+            rules, rules_in_string = [r for r in self.rules if r in string], []
 
-        for each in rules:
-            for right in self.rules[each]:
-                rules_in_string.append((each, right))
+            for each in rules:
+                for right in self.rules[each]:
+                    rules_in_string.append((each, right))
 
-        return rules_in_string
+            return rules_in_string
+        else:
+            return [(self.start, right) for right in self.rules[self.start]]
 
-    def _run_from_string(self, string, length, debug=False):
+    def _run_from_string(self, string, stack, length):
         rules_in_string = self._get_rules_in_string(string)
 
-        if not len(rules_in_string):
-            has_terminal = any(map(lambda s: s in self.non_terminal, string))
+        has_terminal = any(map(lambda s: s in self.non_terminal, string))
 
-            if not has_terminal and len(string) >= length:
-
-                if debug:
-                    print("--->", string)
-
-                return string
-
-            return str()
-
-        else:
+        if has_terminal or not len(string):
             while len(rules_in_string):
-                produced = self._run_random_rule(string, length, rules_in_string)
+                left, right = rules_in_string.pop()
 
-                run = self._run_from_string(produced, length, debug)
-                if len(run):
+                produced = self._run_rule(string, left, right)
 
-                    if debug:
-                        print(produced)
+                has_terminal = any(map(lambda s: s in self.non_terminal, produced))
 
-                    return run
-                
-            return str()
+                if not has_terminal:
+                    stack.add(produced)
+                else:
+                    if len(produced) <= length:
+                        self._run_from_string(produced, stack, length)
+        else:
+            stack.add(string)
 
-    def _run_random_rule(self, string, length, rules_in_string):
-        if not len(rules_in_string):
-            return string
-
-        rules_with_non_terminal, rules_with_terminal = [], []
-        for each, right in rules_in_string:
-            if any(map(lambda c: c in self.non_terminal, right)):
-                rules_with_non_terminal.append((each, right))
-            else:
-                rules_with_terminal.append((each, right))
-
-        rules_with_non_terminal = sorted(rules_with_non_terminal, reverse=True,
-                                         key=lambda r: sum([r.count(c) for c in self.non_terminal]))
-
-        ordered_rules = rules_with_non_terminal + rules_with_terminal
-
-        if len(ordered_rules):
-            if len(string) > length or not len(rules_with_non_terminal):
-                rule = random.randint(0, len(ordered_rules) - 1)
-            else:
-                rule = random.randint(0, len(rules_with_non_terminal) - 1)
-
-            left, right = ordered_rules[rule]
+    def _run_rule(self, string, left, right):
+        if len(string):
             i = string.find(left)
+            if right == Grammar.NULL:
+                return string[:i] + string[i + len(left):]
+            else:
+                return string[:i] + right + string[i + len(left):]
+        else:
+            assert left == self.start
 
-            rules_in_string.remove((left, right))
+            if right == Grammar.NULL:
+                return str()
 
-            return string[:i] + right + string[i + len(left):]
-
-        return string
+            return right
 
     def _sanity_check(self):
         assert self.start in self.rules
@@ -207,17 +188,12 @@ class Grammar:
 
         return FiniteAutomata(transition, initial, {final})
 
-    def __call__(self, length=1, debug=False):
-        self._sanity_check()
+    def enumerate(self, length):
+        stack = set()
 
-        rule = random.randint(0, len(self.rules[self.start]) - 1)
-        string = self.rules[self.start][rule]
+        self._run_from_string(str(), stack=stack, length=length)
 
-        return self._run_from_string(string, length=length, debug=debug)
-
-    def debug(self, length):
-        return [self._run_from_string(self.rules[self.start][rule], length=length, debug=True)
-                for rule in range(len(self.rules[self.start]))]
+        return stack
 
 
 class OpenGrammar(Grammar):

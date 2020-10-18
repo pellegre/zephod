@@ -289,6 +289,137 @@ class RegularLanguage:
 
 # --------------------------------------------------------------------
 #
+# languages definition using formula
+#
+# --------------------------------------------------------------------
+
+class LanguageFormula:
+    def __init__(self, expression, conditions):
+        self.expression, self.conditions = expression, conditions
+
+        self.symbols, self.symbols_partition = set(), dict()
+        for c in self.conditions:
+            for symbol in c.free_symbols:
+                self.symbols.add(symbol)
+
+            if symbol not in self.symbols_partition:
+                self.symbols_partition[symbol] = {symbol}
+
+            for other in c.free_symbols:
+                self.symbols_partition[symbol].add(other)
+
+                if other not in self.symbols_partition:
+                    self.symbols_partition[other] = {other}
+
+                self.symbols_partition[other].add(symbol)
+
+        for symbol in self.symbols:
+            for each in set(self.symbols_partition[symbol]):
+                self.symbols_partition[symbol].update(self.symbols_partition[each])
+
+            for each in set(self.symbols_partition[symbol]):
+                self.symbols_partition[each].update(self.symbols_partition[symbol])
+
+        self.symbols_partition = {s: tuple(self.symbols_partition[s]) for s in self.symbols_partition}
+
+        self.conditions_partition = {}
+        for condition in self.conditions:
+            symbol = next(iter(condition.free_symbols))
+            symbol_set = self.symbols_partition[symbol]
+
+            if symbol_set not in self.conditions_partition:
+                self.conditions_partition[symbol_set] = list()
+
+            self.conditions_partition[symbol_set].append(condition)
+
+        self.expression_partition = {}
+        for expr in self.expression:
+            assert isinstance(expr, Pow)
+            symbol = next(iter(expr.exp.free_symbols))
+            symbol_set = self.symbols_partition[symbol]
+
+            if symbol_set not in self.expression_partition:
+                self.expression_partition[symbol_set] = list()
+
+            self.expression_partition[symbol_set].append(expr)
+
+        self.group_length, self.total_length = {}, Number(0)
+        for part in self.expression_partition:
+            length = Number(0)
+            for each in self.expression_partition[part]:
+                length = length + each.exp
+                self.total_length = self.total_length + each.exp
+
+            self.group_length[part] = length
+
+    def enumerate_strings(self, length=5):
+        generated = []
+        for symbol_set in self.conditions_partition:
+            values = self._generate_exponent_space(symbol_set, self.conditions_partition[symbol_set], length)
+            generated.append(values)
+
+        space = []
+        for each in itertools.product(*generated):
+            value = {}
+            for symbol_set in each:
+                for symbol in symbol_set:
+                    value[symbol] = symbol_set[symbol]
+
+            if self.total_length.subs(value) <= length:
+                space.append(value)
+
+        return sorted([self._generate_string(each) for each in space], key=lambda s: len(s))
+
+    def check_grammar(self, grammar, length=5):
+        generated_strings = set(self.enumerate_strings(length))
+        max_length = len(max(generated_strings, key=lambda w: len(w)))
+
+        print("[+] max string length :", max_length)
+
+        grammar_strings = set(filter(lambda w: len(w) <= max_length, grammar.enumerate(length=max_length)))
+
+        missing_strings = generated_strings.difference(grammar_strings)
+        invalid_strings = grammar_strings.difference(generated_strings)
+
+        if not len(missing_strings) and not len(invalid_strings):
+            return True
+        else:
+            if len(missing_strings):
+                print("[+] MISSING strings :")
+                for s in missing_strings:
+                    print(" -", s)
+
+            if len(invalid_strings):
+                print("[+] INVALID strings :")
+                for s in invalid_strings:
+                    print(" -", s)
+
+            return False
+
+    def _generate_string(self, values):
+        generated = str()
+        for expr in self.expression:
+            assert isinstance(expr, Pow)
+            local = str(expr.base)
+            count = expr.exp.subs(values)
+            generated += count * local
+
+        return generated
+
+    def _generate_exponent_space(self, symbol_set, conditions, length):
+        space = [list(range(0, length + 1)) for _ in symbol_set]
+        cross = itertools.product(*space)
+
+        values = []
+        for each in cross:
+            value = {s: v for s, v in zip(symbol_set, each)}
+            if self.group_length[symbol_set].subs(value) <= length and all([c.subs(value) for c in conditions]):
+                values.append(value)
+
+        return values
+
+# --------------------------------------------------------------------
+#
 # context-free languages definition
 #
 # --------------------------------------------------------------------
@@ -379,6 +510,5 @@ class ContextFreeLanguage:
     def generate_grammar(self):
         grammar = OpenGrammar()
         relations = list(self.relations.items())
-        grammar.simplify()
         return grammar
 
