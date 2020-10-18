@@ -77,31 +77,74 @@ class Grammar:
     def __repr__(self):
         return self.__str__()
 
-    def _run_random_rule(self, string, length):
-        rules_in_string = [r for r in self.rules if r in string]
+    def _get_rules_in_string(self, string):
+        rules, rules_in_string = [r for r in self.rules if r in string], []
+
+        for each in rules:
+            for right in self.rules[each]:
+                rules_in_string.append((each, right))
+
+        return rules_in_string
+
+    def _run_from_string(self, string, length, debug=False):
+        rules_in_string = self._get_rules_in_string(string)
+
+        if not len(rules_in_string):
+            has_terminal = any(map(lambda s: s in self.non_terminal, string))
+
+            if not has_terminal and len(string) >= length:
+
+                if debug:
+                    print("--->", string)
+
+                return string
+
+            return str()
+
+        else:
+            while len(rules_in_string):
+                produced = self._run_random_rule(string, length, rules_in_string)
+
+                run = self._run_from_string(produced, length, debug)
+                if len(run):
+
+                    if debug:
+                        print(produced)
+
+                    return run
+                
+            return str()
+
+    def _run_random_rule(self, string, length, rules_in_string):
+        if not len(rules_in_string):
+            return string
 
         rules_with_non_terminal, rules_with_terminal = [], []
-        for each in rules_in_string:
-            for right in self.rules[each]:
-                if any(map(lambda c: c in self.non_terminal, right)):
-                    rules_with_non_terminal.append((each, right))
-                else:
-                    rules_with_terminal.append((each, right))
+        for each, right in rules_in_string:
+            if any(map(lambda c: c in self.non_terminal, right)):
+                rules_with_non_terminal.append((each, right))
+            else:
+                rules_with_terminal.append((each, right))
 
         rules_with_non_terminal = sorted(rules_with_non_terminal, reverse=True,
                                          key=lambda r: sum([r.count(c) for c in self.non_terminal]))
 
         ordered_rules = rules_with_non_terminal + rules_with_terminal
 
-        if len(string) > length or not len(rules_with_non_terminal):
-            rule = random.randint(0, len(ordered_rules) - 1)
-        else:
-            rule = random.randint(0, len(rules_with_non_terminal) - 1)
+        if len(ordered_rules):
+            if len(string) > length or not len(rules_with_non_terminal):
+                rule = random.randint(0, len(ordered_rules) - 1)
+            else:
+                rule = random.randint(0, len(rules_with_non_terminal) - 1)
 
-        left, right = ordered_rules[rule]
-        i = string.find(left)
+            left, right = ordered_rules[rule]
+            i = string.find(left)
 
-        return string[:i] + right + string[i + len(left):]
+            rules_in_string.remove((left, right))
+
+            return string[:i] + right + string[i + len(left):]
+
+        return string
 
     def _sanity_check(self):
         assert self.start in self.rules
@@ -164,47 +207,17 @@ class Grammar:
 
         return FiniteAutomata(transition, initial, {final})
 
-    def simplify_null(self):
-        for each in list(self.rules):
-            if each != self.start and Transition.NULL in self.rules[each]:
-                self.rules[each].remove(Transition.NULL)
-
-                for other in list(self.rules):
-                    right = self.rules[other]
-
-                    for replace_null in list(map(lambda r: r.replace(each, ''), right)):
-                        if len(replace_null):
-                            self.add(other, replace_null)
-                        else:
-                            self.add(other, Transition.NULL)
-                            self.simplify_null()
-
-    def remove_start_from_right(self):
-        if any(map(lambda r: self.start in r, self.rules[self.start])):
-            new_symbol = chr(ord(min(self.rules.keys(), key=lambda c: ord(c))) - 1)
-            self.add(self.start, new_symbol)
-
-            for each in filter(lambda e: e != new_symbol, list(self.rules[self.start])):
-                if self.start in each:
-                    self.rules[self.start].remove(each)
-
-                if each != Transition.NULL:
-                    self.add(new_symbol, each.replace(self.start, new_symbol))
-
-    def simplify(self):
-        self.simplify_null()
-        self.remove_start_from_right()
-
-    def __call__(self, length=1):
+    def __call__(self, length=1, debug=False):
         self._sanity_check()
 
         rule = random.randint(0, len(self.rules[self.start]) - 1)
         string = self.rules[self.start][rule]
 
-        while any(map(lambda s: s in self.non_terminal, string)):
-            string = self._run_random_rule(string, length)
+        return self._run_from_string(string, length=length, debug=debug)
 
-        return string.replace(Transition.NULL, "")
+    def debug(self, length):
+        return [self._run_from_string(self.rules[self.start][rule], length=length, debug=True)
+                for rule in range(len(self.rules[self.start]))]
 
 
 class OpenGrammar(Grammar):
