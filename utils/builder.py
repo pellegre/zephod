@@ -1,9 +1,83 @@
 from pyauto.automata.finite import *
+from pyauto.automata.turing import *
 
 import pandas
 import random
 import string
 import subprocess
+
+
+class TuringPlotter:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def resolve_move(move):
+        if isinstance(move, MoveLeftAction):
+            return "I"
+        elif isinstance(move, MoveRightAction):
+            return "D"
+        else:
+            return "N"
+
+    @staticmethod
+    def resolve_symbol(symbol):
+        if symbol == Tape.BLANK:
+            return "B"
+
+        return symbol
+
+    @staticmethod
+    def table(machine: TuringMachine):
+        delta = machine.transition
+
+        columns = ["state"]
+        columns += [Tape.N(i) for i in range(delta.tapes)]
+
+        for i in range(delta.tapes):
+            columns += [Tape.N(i) + "-NS", Tape.N(i) + "-M"]
+
+        columns += ["new state"]
+
+        frame = pandas.DataFrame(columns=columns)
+
+        for state in delta.transitions:
+            for transition in delta.transitions[state]:
+                row = [state]
+
+                for tape in range(delta.tapes):
+                    action = transition.action.actions[Tape.N(tape)][0]
+                    row.append(TuringPlotter.resolve_symbol(action.on_symbol))
+
+                for tape in range(delta.tapes):
+                    actions = transition.action.actions[Tape.N(tape)]
+
+                    if len(actions) > 1:
+                        write_action = actions[0]
+                        move_action = actions[1]
+
+                        row.append(TuringPlotter.resolve_symbol(write_action.new_symbol))
+                        row.append(TuringPlotter.resolve_move(move_action))
+
+                    else:
+                        action = actions[0]
+
+                        row.append(TuringPlotter.resolve_symbol(action.on_symbol))
+                        row.append(TuringPlotter.resolve_move(action))
+
+                row.append(transition.target)
+
+                row = pandas.DataFrame([row], columns=columns)
+                frame = pandas.concat([frame, row])
+
+        return frame
+
+    @staticmethod
+    def to_csv(filename, machine: TuringMachine):
+        frame = TuringPlotter.table(machine)
+        frame.to_csv(filename, index=False)
+
+        print("[+] wrote to", filename)
 
 
 class AutomataPlotter:
