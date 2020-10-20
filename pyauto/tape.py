@@ -93,7 +93,7 @@ class Tape:
 
     @staticmethod
     def N(number):
-        return "T" + str(number)
+        return "C" + str(number)
 
 
 # --------------------------------------------------------------------
@@ -111,7 +111,7 @@ class Input:
         self.tapes = {Tape.N(0): Tape(name=Tape.N(0), data=data, pointer=pointer)}
 
         for tape in range(tapes):
-            tape_name = "T" + str(tape + 1)
+            tape_name = "C" + str(tape + 1)
             self.tapes[tape_name] = Tape(name=tape_name)
 
         self.error = False
