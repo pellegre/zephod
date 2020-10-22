@@ -2,6 +2,12 @@ from pyauto.delta import *
 from pyauto.automata.base import *
 from pyauto.tape import *
 
+from sympy.logic.boolalg import *
+from sympy.assumptions.refine import *
+
+from functools import reduce
+
+
 import shutil
 
 
@@ -101,7 +107,6 @@ class TuringDelta(Delta):
 
         for each in self.transitions:
             for transition in self.transitions[each]:
-                print(transition.action, each)
                 transition.action.actions[Tape.N(self.tapes)] = [NoneAction(on_symbol=Tape.BLANK)]
 
         self.tapes += 1
@@ -151,3 +156,5 @@ class TuringMachine(Automata):
         print()
         print("{:25}".format("accepted ---->  (" + str(accepted) + ")"))
         print()
+
+        return buffer

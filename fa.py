@@ -2,6 +2,9 @@ from pyauto.language import *
 from pyauto.automata.finite import *
 from pyauto.automata.pushdown import *
 from pyauto.automata.turing import *
+from pyauto.grammar import *
+
+from utils.function import *
 
 
 def nfsm_example():
@@ -68,9 +71,10 @@ def pda_example():
 
     pda = PushdownAutomata(transition, initial="z0", final={"z2"})
 
-    pda.debug(grammar(length=15))
+    pda.debug(grammar.enumerate(length=15).pop())
 
     AutomataPlotter.plot(pda)
+    AutomataPlotter.tikz(pda, filename="to_text", output=".")
 
     print(pda)
 
@@ -176,153 +180,78 @@ def turing_machine_example():
     print(turing)
 
 
-class TuringFunction:
-    def __init__(self, variables):
-        self.expression = variables
-        self.symbol_tapes, self.tape_symbols, self.tape_counter = dict(), dict(), 1
+def turing_function_example():
+    x, y, z, w = symbols("x y z w")
 
-        self.symbols = variables
+    function = FunctionMachine(expression=3*x - 4*z - 7*w + 9*y, domain=[x >= 0, y > x, z >= 0, w >= 0])
 
-        self.tape_counter = 0
-        self.state_counter = 0
+    function.info()
 
-        self.initial = State("z0")
-        self.turing_input = self._get_copy_input_machine()
+    assert function.run_machine({x: 3, y: 5, z: 6, w: 2})
+    assert function.run_machine({x: 3, y: 5, z: 6, w: 0})
 
-    def get_unary_input(self, values):
-        assert len(values) == len(self.symbols)
+    function = FunctionMachine(expression=9*x - 3*y, domain=[x >= 0, y >= 0])
 
-        unary_input = []
-        for tape in range(1, len(self.tape_symbols) + 1):
-            symbol = self.tape_symbols[tape]
-            value = values[symbol]
-            unary_input += ['1' for _ in range(value)] + ['0']
+    function.info()
 
-        return ''.join(unary_input[:-1])
+    assert function.run_machine({x: 7, y: 3})
+    assert function.run_machine({x: 8, y: 0})
+    assert function.run_machine({x: 8, y: 6})
 
-    def info(self):
-        print("[+] Turing function")
-        print("[+] - input symbols")
-        for symbol in self.symbol_tapes:
-            print("  === symbol", symbol, "is at tape", C(self.symbol_tapes[symbol]))
 
-    def _get_blank_delta(self, tapes=None):
-        if not tapes:
-            tapes = self.tape_counter
-        return {C(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, tapes + 1)}
+def ll1_grammar():
+    grammar = OpenGrammar()
 
-    def _get_copy_input_machine(self):
-        transition = TuringDelta()
+    grammar.add("S", "L")
+    grammar.add("S", "aB")
 
-        input_symbols = self.symbols.copy()
-        tape = self._add_to_tape(input_symbols[0])
-        state = self._get_new_state()
+    grammar.add("B", "$")
+    grammar.add("B", "aL")
+    grammar.add("B", "ea")
 
-        # ---- X mark
+    grammar.add("L", "$")
+    grammar.add("L", "d")
+    grammar.add("L", "aL")
 
-        delta = self._get_blank_delta()
+    grammar.add("P", "d")
+    grammar.add("P", "ed")
 
-        delta[C(0)] = A("1", move=Stay())
-        delta[C(tape)] = A(Tape.BLANK, new="X", move=Right())
+    print(grammar)
 
-        transition.add(self.initial, state, delta)
+    print("-----")
 
-        machine = TuringMachine(initial=self.initial, transition=transition, final={state})
+    lang1 = set(sorted(grammar.enumerate(length=15), key=lambda w: len(w)))
 
-        return self._update_copy_machine(self.symbols.copy(), machine)
+    grammar = OpenGrammar()
+    grammar.add("S", "$")
 
-    def _update_copy_machine(self, input_symbols: list, machine: TuringMachine):
-        transition = machine.transition
+    grammar.add("S", "Z")
+    grammar.add("S", "Y")
 
-        symbol = input_symbols.pop(0)
-        tape = self.symbol_tapes[symbol]
+    grammar.add("Z", "M")
 
-        assert len(machine.final) == 1
-        state = machine.final.pop()
-        final_state = self._get_new_state()
+    grammar.add("M", "aN")
 
-        # ---- copy input
+    grammar.add("N", "aN")
+    grammar.add("N", "$")
 
-        delta = self._get_blank_delta()
-        delta[C(0)] = A("1", move=Right())
-        delta[C(tape)] = A(Tape.BLANK, new="1", move=Right())
+    grammar.add("N", "ea")
+    grammar.add("N", "Y")
 
-        transition.add(state, state, delta)
+    grammar.add("Y", "d")
 
-        if len(input_symbols):
-            # ---- detect next input
+    print(grammar)
+    lang2 = set(sorted(grammar.enumerate(length=15), key=lambda w: len(w)))
 
-            next_tape = self._add_to_tape(input_symbols[0])
-            transition.add_tape()
+    print(lang2)
 
-            delta = self._get_blank_delta()
-            delta[C(0)] = A("0", move=Right())
-            delta[C(next_tape)] = A(Tape.BLANK, new="X", move=Right())
-
-            transition.add(state, final_state, delta)
-
-            # ---- create machine
-
-            machine = TuringMachine(initial=machine.initial, transition=transition,
-                                    final={final_state})
-
-            return self._update_copy_machine(input_symbols, machine)
-
-        else:
-            # ---- final machine
-
-            delta = self._get_blank_delta()
-            transition.add(state, final_state, delta)
-
-            # ---- final machine
-
-            machine = TuringMachine(initial=machine.initial, transition=transition,
-                                    final={final_state})
-
-            return machine
-
-    def _add_to_tape(self, expression):
-        self.tape_counter += 1
-
-        self.symbol_tapes[expression] = self.tape_counter
-        self.tape_symbols[self.tape_counter] = expression
-
-        return self.tape_counter
-
-    def _get_new_state(self):
-        self.state_counter += 1
-
-        return self.initial.prefix + str(self.state_counter)
+    print(lang1.difference(lang2))
 
 
 def main():
     print("[+] FD ")
-
-    x, y, w, z = symbols("x y w z")
-    function = TuringFunction(variables=[z, y, w, x])
-
-    unary_input = function.get_unary_input({x: 5, y: 3, w: 4, z: 9})
-
-    function.turing_input.debug(unary_input)
-    function.info()
-
-    # grammar = OpenGrammar()
-    #
-    # grammar.add("S", "A")
-    #
-    # grammar.add("A", "aABC")
-    # grammar.add("A", "aBC")
-    #
-    # grammar.add("CB", "BC")
-    #
-    # grammar.add("aB", "ab")
-    # grammar.add("bB", "bb")
-    # grammar.add("bC", "bc")
-    # grammar.add("cC", "cc")
-    #
-    # print(grammar(length=10))
-    #
-    # exit()
+    pda_example()
 
 
 main()
+
