@@ -24,10 +24,17 @@ class Transition:
         raise RuntimeError("symbol not implemented")
 
     def __str__(self):
-        return str(self.action)
+        return str(self.source) + " -> " + str(self.target) + " with " + str(self.action)
 
     def __repr__(self):
         return self.__str__()
+
+    def __eq__(self, other):
+        return str(self.source) == str(other.source) and str(self.target) == str(other.target) and \
+               str(self.action) == str(other.action)
+
+    def __hash__(self):
+        return self.__str__().__hash__()
 
 # --------------------------------------------------------------------
 #
@@ -92,19 +99,20 @@ class Delta:
     def add(self, ei, ef, *args, **kwargs):
         source, target = State(ei), State(ef)
 
-        self.states.add(source)
-        self.states.add(target)
-
         transition_symbols = self._add_transition(source, target, *args, **kwargs)
 
-        if source not in self.delta:
-            self.delta[source] = {}
+        if transition_symbols is not None:
+            self.states.add(source)
+            self.states.add(target)
 
-        for s in transition_symbols:
-            if s not in self.delta[source]:
-                self.delta[source][s] = set()
+            if source not in self.delta:
+                self.delta[source] = {}
 
-            self.delta[source][s].add(target)
+            for s in transition_symbols:
+                if s not in self.delta[source]:
+                    self.delta[source][s] = set()
+
+                self.delta[source][s].add(target)
 
     def join(self, other):
         for ei in other.delta:

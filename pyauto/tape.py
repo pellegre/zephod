@@ -323,6 +323,12 @@ class InputAction:
 
         return consumed
 
+    def __str__(self):
+        out = str()
+        for each in self.actions:
+            out += each + " : " + " , ".join([str(a) for a in self.actions[each]]) + " | "
+        return out[:-3]
+
 
 # --------------------------------------------------------------------
 #

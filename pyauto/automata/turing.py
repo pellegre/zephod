@@ -72,9 +72,9 @@ def C(number):
 
 
 class TuringDelta(Delta):
-    def __init__(self):
+    def __init__(self, tapes=None):
         super().__init__()
-        self.tapes = None
+        self.tapes = tapes
 
     def _add_transition(self, source, target, delta):
         if not self.tapes:
@@ -95,11 +95,41 @@ class TuringDelta(Delta):
                 self.alphabet.add(action.symbol)
 
         transition = Transition(source=source, target=target, action=InputAction(actions=actions))
+
+        if source in self.transitions:
+            if any([transition == t for t in self.transitions[transition.source]]):
+                print("[+] skipping repeated transition", transition)
+                return None
+
         self.transitions[source].append(transition)
 
         transition_symbols.append(str(transition))
 
         return transition_symbols
+
+    def merge_transition(self, transition):
+        if transition.source in self.transitions:
+            if any([transition == t for t in self.transitions[transition.source]]):
+                print("[+] skipping repeated transition", transition)
+                return
+
+        if transition.source not in self.transitions:
+            self.transitions[transition.source] = []
+
+        self.states.add(transition.source)
+        self.states.add(transition.target)
+
+        self.transitions[transition.source].append(transition)
+
+        if transition.source not in self.delta:
+            self.delta[transition.source] = {}
+
+        transition_symbol = str(transition)
+
+        if transition_symbol not in self.delta[transition.source]:
+            self.delta[transition.source][transition_symbol] = set()
+
+        self.delta[transition.source][transition_symbol].add(transition.target)
 
     def add_tape(self):
         if not self.tapes:

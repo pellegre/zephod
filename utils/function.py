@@ -242,6 +242,14 @@ class FunctionMachine:
     def _calculate_expression(self, expression):
         args = sorted(expression.args, key=lambda w: int(self._factorize_expression(w)[0]), reverse=True)
 
+        for each in args:
+            # -------- get factor and expression
+            fact, expr = self._factorize_expression(each)
+
+            # -------- prepare the sum
+            if expr not in self.symbol_tapes:
+                self._calculate_expression(expr)
+
         # get result tape
         transition = self.turing_machine.transition
         result_tape = self._add_to_tape(expression)
@@ -260,6 +268,7 @@ class FunctionMachine:
 
         for each in args:
             if not isinstance(each, Number):
+                print("-----", type(each))
                 # -------- get factor and expression
                 fact, expr = self._factorize_expression(each)
 
@@ -269,7 +278,7 @@ class FunctionMachine:
 
                 tape = self._get_tape_for_symbol(expr)
 
-                print("-----> state before", expr, state)
+                print("-----> state before", expr, state, " ********* replicating ", fact, expr)
                 # -------- add (or subtract) ones
                 state = self._replicate_tape_with_factor(transition, state, fact, expr, tape, result_tape)
                 print("-----> state after", expr, state)
