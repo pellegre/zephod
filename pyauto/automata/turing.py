@@ -141,12 +141,12 @@ class TuringDelta(Delta):
 
         self.tapes += 1
 
-
 # --------------------------------------------------------------------
 #
 # Turing machine
 #
 # --------------------------------------------------------------------
+
 
 class TuringMachine(Automata):
     def __init__(self, transition, initial, final):
@@ -159,6 +159,25 @@ class TuringMachine(Automata):
 
     def _build_a_graph(self, a):
         a.edge_attr["minlen"] = "2"
+
+    def is_non_deterministic(self, deltas=None):
+        is_non_deterministic = False
+
+        for each in self.transition.transitions:
+            for transition in self.transition.transitions[each]:
+                for other in filter(lambda t: t is not transition, self.transition.transitions[each]):
+
+                    if str(transition.action) == str(other.action):
+                        is_non_deterministic = True
+
+                        if deltas is not None:
+                            if each not in deltas:
+                                deltas[each] = set()
+
+                            deltas[each].add(transition)
+                            deltas[each].add(other)
+
+        return is_non_deterministic
 
     def read(self, string):
         buffer = self(Input(data=string, initial=self.initial, tapes=self.transition.tapes - 1))

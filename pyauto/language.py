@@ -388,7 +388,7 @@ class ExponentSpace:
             value = 0
 
             if constraint and each in constraint:
-                while not self.free_symbols[each].subs({each: value}) and value < constraint[each]:
+                while not self.free_symbols[each].subs({each: value}) or value < constraint[each]:
                     value += 1
             else:
                 while not self.free_symbols[each].subs({each: value}):
@@ -398,6 +398,7 @@ class ExponentSpace:
 
         stack = list()
         self._generate_minimal_stack(minimal_free, stack)
+
         return stack
 
 
@@ -414,7 +415,7 @@ class Language:
 
         print("[+] max string length :", max_length)
 
-        grammar_strings = set(filter(lambda w: len(w) <= max_length, grammar.enumerate(length=max_length)))
+        grammar_strings = set(filter(lambda w: len(w) <= length, grammar.enumerate(length=length + 5)))
 
         missing_strings = generated_strings.difference(grammar_strings)
         invalid_strings = grammar_strings.difference(generated_strings)
@@ -423,14 +424,14 @@ class Language:
             return True
         else:
             if len(missing_strings):
-                print("[+] MISSING strings :")
+                print("\n\n[+] MISSING strings :")
                 for s in missing_strings:
                     print(" -", s)
 
             if len(invalid_strings):
-                print("[+] INVALID strings :")
+                print("\n\n[+] INVALID strings :")
                 for s in invalid_strings:
-                    print(" -", s)
+                    grammar.print_stack(s)
 
             return False
 
@@ -551,7 +552,7 @@ class LanguageFormula(Language):
                                str(exponent) + "@" + str(type(exponent)) + " - base " + str(base))
 
     def info(self):
-        print("[+] expression", self.expression)
+        print("[+] expression", [str(e) + " (" + str(i) + ")" for i, e in enumerate(self.expression)])
         print("[+] partitions", self.partitions)
         print("[+] symbols", self.symbols)
         print("[+] symbol partition", self.symbols_partition)

@@ -1,5 +1,7 @@
 from pyauto.automata.finite import *
 
+import functools
+
 
 class Grammar:
     NULL = "$"
@@ -65,6 +67,8 @@ class Grammar:
         self.terminal, self.non_terminal = terminal, non_terminal
         self.start, self.rules = start, {}
 
+        self.rule_stack = dict()
+
         assert isinstance(self.terminal, set)
         assert isinstance(self.non_terminal, set)
         assert isinstance(self.start, str)
@@ -80,6 +84,7 @@ class Grammar:
         return self.__str__()
 
     def _get_rules_in_string(self, string):
+
         if len(string):
             rules, rules_in_string = [r for r in self.rules if r in string], []
 
@@ -91,26 +96,49 @@ class Grammar:
         else:
             return [(self.start, right) for right in self.rules[self.start]]
 
-    def _run_from_string(self, string, stack, length):
+    def _check_for_pruning_condition_context_sensitive(self, string):
+        return any([string[i] in self.non_terminal and string[i + 1] in self.terminal
+                    for i in range(0, len(string) - 2)])
+
+    def _run_from_string(self, string, stack, length, prune=None, rule_stack=None):
+        if prune is None:
+            prune = set()
+
+        if rule_stack is None:
+            rule_stack = list()
+
         rules_in_string = self._get_rules_in_string(string)
 
         has_terminal = any(map(lambda s: s in self.non_terminal, string))
+
+        initial_stack = len(stack)
 
         if has_terminal or not len(string):
             while len(rules_in_string):
                 left, right = rules_in_string.pop()
 
                 produced = self._run_rule(string, left, right)
+                current_stack = rule_stack + [produced + " : " + left + " -> " + right]
 
                 has_terminal = any(map(lambda s: s in self.non_terminal, produced))
 
                 if not has_terminal:
+                    self.rule_stack[produced] = current_stack.copy()
                     stack.add(produced)
                 else:
-                    if len(produced) <= length:
-                        self._run_from_string(produced, stack, length)
+                    if produced not in prune and len(produced) <= length:
+                        self._run_from_string(produced, stack, length, prune, current_stack)
+
         else:
+            self.rule_stack[string] = rule_stack.copy()
             stack.add(string)
+
+        if len(stack) > initial_stack:
+            return True
+
+        prune.add(string)
+
+        return False
 
     def _run_rule(self, string, left, right):
         if len(string):
@@ -126,6 +154,9 @@ class Grammar:
                 return str()
 
             return right
+
+    def run_rule(self, string, rule, right):
+        return self._run_rule(string, rule,  right)
 
     def _sanity_check(self):
         assert self.start in self.rules
@@ -189,11 +220,65 @@ class Grammar:
         return FiniteAutomata(transition, initial, {final})
 
     def enumerate(self, length):
-        stack = set()
+        stack, self.rule_stack = set(), dict()
 
         self._run_from_string(str(), stack=stack, length=length)
 
         return stack
+
+    def get_string(self):
+        return GrammarString(grammar=self)
+
+    def print_stack(self, string):
+        if string not in self.rule_stack:
+            raise RuntimeError("string " + string + " does not belong to this grammar")
+        print("[+] ", string, " : ")
+
+        for i, rule in enumerate(self.rule_stack[string]):
+            print("[" + str(i) + "]", rule)
+
+
+class GrammarString:
+    def __init__(self, grammar: Grammar):
+        self.grammar = grammar
+        self.current = str()
+
+    def add_rule(self, rule, right):
+        self.grammar.add(rule, right)
+
+    def run_rule(self, rule, right, times=1):
+        if rule is not 'S' and rule not in self.current:
+            raise RuntimeError("no rule present " + rule + " in " + self.current)
+
+        for i in range(0, times):
+            self.grammar.add(rule, right)
+            self.current = self.grammar.run_rule(self.current, rule, right)
+            print("[@] run", self.current, rule, "->", right, {c: self.current.count(c) for c in self.current})
+
+        return self.current
+
+    def run_rule_until(self, rule, right):
+        if rule is not 'S' and rule not in self.current:
+            raise RuntimeError("no rule present " + rule + " in " + self.current)
+
+        while rule in self.current:
+            self.grammar.add(rule, right)
+            self.current = self.grammar.run_rule(self.current, rule, right)
+            print("[@] run", self.current, rule, "->", right, {c: self.current.count(c) for c in self.current})
+
+        return self.current
+
+    def run_rules_until(self, rules):
+        while True:
+            try:
+                for each in rules:
+                    self.run_rule_until(each[0], each[1])
+
+            except RuntimeError:
+                return self.current
+
+    def reset(self):
+        self.current = str()
 
 
 class OpenGrammar(Grammar):

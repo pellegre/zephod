@@ -248,6 +248,84 @@ def ll1_grammar():
     print(lang1.difference(lang2))
 
 
+class LanguageGrammar:
+    @staticmethod
+    def get_non_terminal_from_counter(counter):
+        return chr((counter - ord('A') - 1) % (ord('R') - ord('A') + 1) + ord('A'))
+
+    def __init__(self, language, non_terminal='S'):
+        self.language = LanguageFormula.normalize(language)
+
+        self.initial = non_terminal
+        self.non_terminal_counter = ord(self.initial)
+
+        self.non_terminal_for_group, self.non_terminal_for_blocks = {}, {}
+
+        for each in self.language.expression_partition:
+            for i, expr in enumerate(self.language.expression_partition[each]):
+                if each not in self.non_terminal_for_blocks:
+                    self.non_terminal_for_blocks[each] = {}
+
+                self.non_terminal_for_blocks[each][i] = self._get_non_terminal()
+
+            self.non_terminal_for_group[each] = self.non_terminal_for_blocks[each][0]
+
+        self.grammar = OpenGrammar()
+        self._generate_grammar()
+
+    def info(self):
+        print("\n[+] language")
+        self.language.info()
+
+        print("\n[+] grammar")
+        print("[+] initial", self.initial)
+        print("[+] non terminal for group", self.non_terminal_for_group)
+        print("[+] non terminal for blocks", self.non_terminal_for_blocks)
+
+        print(self.grammar)
+
+    def _generate_grammar(self):
+        expression_groups = [self.language.symbols_partition[set(expr.exp.free_symbols).pop()]
+                             for expr in self.language.expression if isinstance(expr, Pow)]
+
+        groups = list()
+        for each in filter(lambda e: e not in groups, expression_groups):
+            groups.append(each)
+
+        self.grammar.add(self.initial, ''.join([self.non_terminal_for_group[g] for g in groups]))
+
+        for each in groups:
+            non_terminal = self.non_terminal_for_group[each]
+
+            self._add_rules_for_group(non_terminal, each)
+
+    def _get_minimum_indices(self, constraints=None):
+        space = ExponentSpace(sym=self.language.symbols, conditions=self.language.conditions,
+                              length=self.language.total_length)
+
+        return space.get_minimal(constraints)
+
+    def _add_rules_for_group(self, non_terminal, group_set, block=0):
+        blocks = self.language.expression_partition[group_set]
+        if block < len(blocks):
+            expr = blocks[block]
+            assert isinstance(expr, Pow)
+
+            self.grammar.add(non_terminal, ''.join([str(blocks[block].base), non_terminal] +
+                                                   [self.non_terminal_for_blocks[group_set][b] for b in
+                                                    range(block + 1, len(blocks))]))
+
+            next_non_terminal = self._get_non_terminal()
+
+            self.grammar.add(non_terminal, ''.join([str(blocks[block].base) + str(blocks[block + 1].base),
+                                                    next_non_terminal] + [self.non_terminal_for_blocks[group_set][b]
+                                                                          for b in range(block + 2, len(blocks))]))
+
+    def _get_non_terminal(self):
+        self.non_terminal_counter -= 1
+        return self.get_non_terminal_from_counter(self.non_terminal_counter)
+
+
 class LanguageMachine:
     def __init__(self, language, prefix="z"):
         self.language = LanguageFormula.normalize(language)
@@ -257,14 +335,14 @@ class LanguageMachine:
         self.prefix = prefix
         self.initial_state = State(self.prefix + "0")
 
-        self.state_counter, self.tape_counter = 0, 0
-        self.symbol_tape = {}
+        self.state_counter = 0
 
         self.state_description = {}
 
-        for each in self.language.symbols:
-            tape = self._get_new_tape()
-            self.symbol_tape[each] = tape
+        self.planner = TuringPlanner(language=self.language)
+
+        for _ in self.planner.tapes:
+            self.transition.add_tape()
 
         self.minimal = self._get_minimum_indices()
 
@@ -280,22 +358,22 @@ class LanguageMachine:
 
         self.parsed_state = self._get_new_state(description="state after parsing all blocks")
 
-        for state in self._get_next_states(0):
+        self.state_from_block[TuringPlanner.END_BLOCK] = self.parsed_state
+
+        for block in self.planner.explore_exit_blocks(0):
+            state = self.state_from_block[block]
+
             next_symbol = self._get_symbol_for_state(state)
 
             delta = self._get_blank_delta()
 
             delta[C(0)] = A(next_symbol, move=Stay())
-            for tape in range(1, self.tape_counter + 1):
+            for tape in self.planner.tapes:
                 delta[C(tape)] = A(Tape.BLANK, new="X", move=Right())
 
             self.transition.add(self.initial_state, state, delta)
 
-        self.visited_counters = set()
-
-        self._parse_block(block=0)
-
-        self.final_state = self._verify_conditions(initial_state=self.parsed_state)
+        self.final_state = self._build_planner(self.initial_state)
 
         self.turing = TuringMachine(initial=self.initial_state, transition=self.transition,
                                     final={self.final_state})
@@ -305,103 +383,111 @@ class LanguageMachine:
         print("[+] minimal", self.minimal)
         print("[+] block state", self.block_from_state)
         print("[+] final state", self.final_state)
-        print("[+] symbol tape", self.symbol_tape)
         print("[+] conditions", self.language.conditions)
-
-        for block in range(0, len(self.language.expression)):
-            print("[+] block", block, ",", self.state_from_block[block],
-                  " -> ", self._get_next_states(block + 1))
 
         print("[+] state description")
         for state in self.state_description:
             print("[+] state " + str(state) + " -> " + self.state_description[state])
 
-    def _verify_conditions(self, initial_state):
-        if all([len(c.free_symbols) == 1 for c in self.language.conditions]):
-            return initial_state
+        print("[*] turing machine")
+        print(self.turing.transition)
+
+        if self.turing.is_non_deterministic():
+            non_deterministic_deltas = dict()
+            print("[+] non deterministic :", self.turing.is_non_deterministic(deltas=non_deterministic_deltas))
+            if len(non_deterministic_deltas):
+                for state in non_deterministic_deltas:
+                    for each in non_deterministic_deltas[state]:
+                        print("[+] -", each)
 
         else:
-            next_state = initial_state
+            print("[*] the turing machine is deterministic :)")
 
-            for c in filter(lambda c: len(c.free_symbols) > 1, self.language.conditions):
-                if not isinstance(c.rhs, Symbol):
-                    next_state = self._accumulate_counters(next_state, c.rhs)
+        self.planner.info()
 
-                if not isinstance(c.lhs, Symbol):
-                    next_state = self._accumulate_counters(next_state, c.lhs)
-
-                if isinstance(c, Eq):
-                    next_state = self._verify_equal_counters(next_state, c.lhs, c.rhs)
-
-                elif isinstance(c, StrictGreaterThan):
-                    next_state = self._verify_strict_greater_counters(next_state, c.lhs, c.rhs)
-
-                elif isinstance(c, GreaterThan):
-                    next_state = self._verify_greater_counters(next_state, c.lhs, c.rhs)
-
-                elif isinstance(c, StrictLessThan):
-                    next_state = self._verify_strict_greater_counters(next_state, c.rhs, c.lhs)
-
-                elif isinstance(c, LessThan):
-                    next_state = self._verify_greater_counters(next_state, c.rhs, c.lhs)
-
-                elif isinstance(c, Unequality):
-                    next_state = self._verify_unequal_counters(next_state, c.rhs, c.lhs)
-
-        return next_state
-
-    def _accumulate_counters(self, initial_state, expr):
-        assert all([isinstance(e, Symbol) for e in expr.args])
-
-        symbol, rest = expr.args[0], expr.args[1:]
-        result_tape = self._get_tape_for_symbol(symbol)
-
-        self.symbol_tape[expr] = result_tape
-
+    def _build_planner(self, initial_state):
         next_state = initial_state
 
-        for each in rest:
-            tape = self._get_tape_for_symbol(each)
+        for plan in self.planner.machine_plan:
+            if isinstance(plan, BlockPlan):
+                current_block = plan.block
+                state = self.state_from_block[current_block]
 
-            left_state = self._get_new_state(description="moving left while accumulating " +
-                                                         str(expr) + " on " + C(result_tape))
+                final_states = [self.state_from_block[block] for block in self.planner.exit_blocks[current_block]]
 
-            delta = self._get_blank_delta()
-            delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A(Tape.BLANK, move=Left())
-            self.transition.add(next_state, left_state, delta)
+                if isinstance(plan, ParseLoneSymbol):
+                    self._parse_lone_symbol(self._get_word_for_block(current_block), state, final_states)
 
-            delta = self._get_blank_delta()
-            delta[C(result_tape)] = A(Tape.BLANK, new="Z", move=Right())
-            delta[C(tape)] = A("Z", move=Left())
-            self.transition.add(left_state, left_state, delta)
+                elif isinstance(plan, ParseAccumulate):
+                    self._parse_block_and_count(plan.tape, self._get_word_for_block(current_block),
+                                                state, final_states)
 
-            right_state = self._get_new_state(description="hit X while accumulating " +
-                                                          str(expr) + " on " + C(result_tape))
+                elif isinstance(plan, ParseEqual):
+                    self._parse_block_exact_equal(plan.tape, self._get_word_for_block(current_block),
+                                                  state, final_states)
 
-            delta = self._get_blank_delta()
-            delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A("X", move=Right())
-            self.transition.add(left_state, right_state, delta)
+                next_state = self.parsed_state
 
-            delta = self._get_blank_delta()
-            delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A("Z", move=Right())
-            self.transition.add(right_state, right_state, delta)
+            elif isinstance(plan, OperationPlan):
+                source_tape = plan.source_tape
+                target_tape = plan.target_tape
 
-            next_state = self._get_new_state(description="rewind " + C(tape) + " after accumulating " + str(expr))
+                if isinstance(plan, Accumulate):
+                    next_state = self._accumulate_counters(next_state, source_tape, target_tape)
 
-            delta = self._get_blank_delta()
-            delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A(Tape.BLANK, move=Stay())
-            self.transition.add(right_state, next_state, delta)
+                elif isinstance(plan, CompareGreater):
+                    next_state = self._verify_greater_counters(next_state, source_tape, target_tape)
+
+                elif isinstance(plan, CompareStrictGreater):
+                    next_state = self._verify_strict_greater_counters(next_state, source_tape, target_tape)
+
+                elif isinstance(plan, CompareUnequal):
+                    next_state = self._verify_unequal_counters(next_state, source_tape, target_tape)
+
+                elif isinstance(plan, CompareEqual):
+                    next_state = self._verify_equal_counters(next_state, source_tape, target_tape)
 
         return next_state
 
-    def _verify_strict_greater_counters(self, initial_state, a, b):
-        tape_a = self._get_tape_for_symbol(a)
-        tape_b = self._get_tape_for_symbol(b)
+    def _accumulate_counters(self, initial_state, tape, result_tape):
+        next_state = initial_state
 
+        left_state = self._get_new_state(description="moving left while accumulating C" +
+                                                     str(tape) + " on " + C(result_tape))
+
+        delta = self._get_blank_delta()
+        delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A(Tape.BLANK, move=Left())
+        self.transition.add(next_state, left_state, delta)
+
+        delta = self._get_blank_delta()
+        delta[C(result_tape)] = A(Tape.BLANK, new="Z", move=Right())
+        delta[C(tape)] = A("Z", move=Left())
+        self.transition.add(left_state, left_state, delta)
+
+        right_state = self._get_new_state(description="hit X while accumulating C" +
+                                                      str(tape) + " on " + C(result_tape))
+
+        delta = self._get_blank_delta()
+        delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A("X", move=Right())
+        self.transition.add(left_state, right_state, delta)
+
+        delta = self._get_blank_delta()
+        delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A("Z", move=Right())
+        self.transition.add(right_state, right_state, delta)
+
+        next_state = self._get_new_state(description="rewind " + C(tape) + " after accumulating")
+
+        delta = self._get_blank_delta()
+        delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A(Tape.BLANK, move=Stay())
+        self.transition.add(right_state, next_state, delta)
+
+        return next_state
+
+    def _verify_strict_greater_counters(self, initial_state, tape_a, tape_b):
         left_state = self._get_new_state(description="moving left while comparing (greater) " +
                                                      C(tape_a) + " > " + C(tape_b))
 
@@ -437,10 +523,7 @@ class LanguageMachine:
 
         return final_state
 
-    def _verify_greater_counters(self, initial_state, a, b):
-        tape_a = self._get_tape_for_symbol(a)
-        tape_b = self._get_tape_for_symbol(b)
-
+    def _verify_greater_counters(self, initial_state, tape_a, tape_b):
         left_state = self._get_new_state(description="moving left while comparing (greater / equal) " +
                                                      C(tape_a) + " >= " + C(tape_b))
 
@@ -481,10 +564,7 @@ class LanguageMachine:
 
         return final_state
 
-    def _verify_equal_counters(self, initial_state, a, b):
-        tape_a = self._get_tape_for_symbol(a)
-        tape_b = self._get_tape_for_symbol(b)
-
+    def _verify_equal_counters(self, initial_state, tape_a, tape_b):
         left_state = self._get_new_state(description="moving left while comparing (equality) " +
                                                      C(tape_a) + " == " + C(tape_b))
 
@@ -520,10 +600,7 @@ class LanguageMachine:
 
         return final_state
 
-    def _verify_unequal_counters(self, initial_state, a, b):
-        tape_a = self._get_tape_for_symbol(a)
-        tape_b = self._get_tape_for_symbol(b)
-
+    def _verify_unequal_counters(self, initial_state, tape_a, tape_b):
         left_state = self._get_new_state(description="moving left while comparing (unequality) " +
                                                      C(tape_a) + " != " + C(tape_b))
 
@@ -564,43 +641,14 @@ class LanguageMachine:
 
         return final_state
 
-    def _parse_block(self, block):
-        state = self.state_from_block[block]
-        word = self._get_word_for_state(state)
-
-        next_states = self._get_next_states(block + 1)
-
-        if isinstance(self.language.expression[block], Symbol):
-            self._parse_lone_symbol(word, state, next_states)
-
-        elif isinstance(self.language.expression[block], Pow):
-            counter = self._get_counter_for_block(block)
-
-            if counter not in self.visited_counters:
-                self._parse_block_and_count(word, state, next_states)
-                self.visited_counters.add(counter)
-            else:
-                self._parse_block_exact_equal(word, state, next_states)
-
-        if not (len(next_states) == 1 and self.parsed_state in next_states):
-            self._parse_block(block + 1)
-
-    def _parse_block_exact_equal(self, word, initial_state, final_states):
+    def _parse_block_exact_equal(self, counter_tape, word, initial_state, final_states):
         block = self.block_from_state[initial_state]
 
-        counter = self._get_counter_for_block(block)
-        counter_tape = self._get_tape_for_symbol(counter)
-
-        assert counter in self.visited_counters
-
-        next_counter = self._get_counter_for_block(block + 1)
         rewind_state = self._get_new_state(description="rewind " + C(counter_tape) + " after parsing block " +
-                                           str(block) + " (" + str(self.language.expression[block]) + ")")
+                                                       str(block) + " (" + str(self.language.expression[block]) + ")")
 
-        minimal = self._get_minimum_indices(constraints={counter: 1})
-
-        if isinstance(next_counter, Symbol) and all([m[next_counter] > 0 for m in minimal]):
-            next_symbol = self._get_symbol_for_block(block + 1)
+        for each in final_states:
+            next_symbol = self._get_symbol_for_state(each)
 
             delta = self._get_blank_delta()
             delta[C(0)] = A(next_symbol, move=Stay())
@@ -615,26 +663,7 @@ class LanguageMachine:
             delta = self._get_blank_delta()
             delta[C(0)] = A(next_symbol, move=Stay())
             delta[C(counter_tape)] = A(Tape.BLANK, move=Stay())
-            self.transition.add(rewind_state, self.state_from_block[block + 1], delta)
-
-        else:
-            for each in final_states:
-                next_symbol = self._get_symbol_for_state(each)
-
-                delta = self._get_blank_delta()
-                delta[C(0)] = A(next_symbol, move=Stay())
-                delta[C(counter_tape)] = A("X", move=Right())
-                self.transition.add(initial_state, rewind_state, delta)
-
-                delta = self._get_blank_delta()
-                delta[C(0)] = A(next_symbol, move=Stay())
-                delta[C(counter_tape)] = A("Z", move=Right())
-                self.transition.add(rewind_state, rewind_state, delta)
-
-                delta = self._get_blank_delta()
-                delta[C(0)] = A(next_symbol, move=Stay())
-                delta[C(counter_tape)] = A(Tape.BLANK, move=Stay())
-                self.transition.add(rewind_state, each, delta)
+            self.transition.add(rewind_state, each, delta)
 
         current_state = initial_state
 
@@ -654,23 +683,20 @@ class LanguageMachine:
                 delta[C(counter_tape)] = A("Z", move=Stay())
                 next_state = self._get_new_state(description="parsed letter " + word[i] +
                                                              " of word " + word + " in block " + str(block) +
-                                                             " while verifying counter " + str(counter))
+                                                             " while verifying counter in C" + str(counter_tape))
 
             delta[C(0)] = A(word[i], move=Right())
             self.transition.add(current_state, next_state, delta)
 
             current_state = next_state
 
-    def _parse_block_and_count(self, word, initial_state, final_states):
+    def _parse_block_and_count(self, counter_tape, word, initial_state, final_states):
         block = self.block_from_state[initial_state]
 
         expr = self.language.expression[block]
 
         assert isinstance(expr, Pow)
         assert len(expr.exp.free_symbols) == 1
-
-        counter = expr.exp.free_symbols.pop()
-        counter_tape = self._get_tape_for_symbol(counter)
 
         current_state = initial_state
 
@@ -684,7 +710,7 @@ class LanguageMachine:
             else:
                 next_state = self._get_new_state(description="parsing letter " + word[i] +
                                                              " of word " + word + " in block " + str(block) +
-                                                             " while counting " + str(counter) + " first time")
+                                                             " while counting " + str(counter_tape) + " first time")
 
             delta[C(0)] = A(word[i], move=Right())
             self.transition.add(current_state, next_state, delta)
@@ -719,25 +745,6 @@ class LanguageMachine:
             delta = self._get_blank_delta()
             delta[C(0)] = A(self._get_symbol_for_state(each), move=Stay())
             self.transition.add(current_state, each, delta)
-
-    def _get_tape_for_symbol(self, symbol):
-        return self.symbol_tape[symbol]
-
-    def _get_counter_for_block(self, block):
-        if block == len(self.language.expression):
-            return Number(1)
-
-        expr = self.language.expression[block]
-
-        if isinstance(expr, Pow):
-            assert len(expr.exp.free_symbols) == 1
-
-            counter = expr.exp.free_symbols.pop()
-
-            return counter
-
-        else:
-            return Number(1)
 
     def _get_symbol_for_state(self, state):
         if state == self.parsed_state:
@@ -780,13 +787,7 @@ class LanguageMachine:
         return space.get_minimal(constraints)
 
     def _get_blank_delta(self):
-        return {C(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, self.tape_counter + 1)}
-
-    def _get_new_tape(self):
-        self.tape_counter += 1
-        self.transition.add_tape()
-
-        return self.tape_counter
+        return {C(tape): A(Tape.BLANK, move=Stay()) for tape in [0] + self.planner.tapes}
 
     def _get_new_state(self, description):
         self.state_counter += 1
@@ -796,30 +797,6 @@ class LanguageMachine:
         self.state_description[new_state] = description
 
         return new_state
-
-    def _get_next_states(self, index=0):
-        if index < len(self.language.expression):
-            state = self.state_from_block[index]
-            expr = self.language.expression[index]
-
-            if isinstance(expr, Pow):
-                assert isinstance(expr.exp, Symbol)
-
-                word = expr.base
-                assert isinstance(word, Symbol)
-
-                if all([m[expr.exp] > 0 for m in self.minimal]):
-                    return [state]
-                else:
-                    upstream = self._get_next_states(index + 1)
-                    return [state] + upstream
-
-            else:
-                assert isinstance(expr, Symbol)
-
-                return [state]
-        else:
-            return [self.parsed_state]
 
 
 class TuringParser:
@@ -873,15 +850,18 @@ class TuringParser:
         print("[*] turing machine")
         print(self.turing.transition)
 
-    def _check_equal_prefix(self, deltas):
+    @staticmethod
+    def _check_equal_prefix(deltas):
         prefix = [transition.source.prefix for m in deltas for s in deltas[m] for transition in deltas[m][s]]
         return len(prefix) and prefix.count(prefix[0]) == len(prefix)
 
-    def _check_equal_states(self, deltas):
+    @staticmethod
+    def _check_equal_states(deltas):
         number = [transition.source.number for m in deltas for s in deltas[m] for transition in deltas[m][s]]
         return len(number) and number.count(number[0]) == len(number)
 
-    def _check_equal_transitions(self, deltas):
+    @staticmethod
+    def _check_equal_transitions(deltas):
         transitions = {m: set(deltas[m][s]) for m in deltas for s in deltas[m]}
         return reduce(lambda s, t: transitions[s] == transitions[t], transitions)
 
@@ -1211,7 +1191,7 @@ def test_language_turing_machine_8():
     a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
     m, k, n = symbols("m k n")
 
-    cfl = LanguageFormula(expression=[a ** (2*k + 1), e ** n, b ** (k + 2), c ** (k + 3*m)],
+    cfl = LanguageFormula(expression=[a ** (2 * k + 1), e ** n, b ** (k + 2), c ** (k + 3 * m)],
                           conditions=[k >= 0, m > 0, n < m])
 
     lang_machine = TuringParser(language=cfl)
@@ -1233,7 +1213,7 @@ def test_language_turing_machine_9():
     n, j = symbols("n j")
     ac, b, c, d = symbols("ac b c d")
 
-    lang = LanguageFormula(expression=[ac**(n + 1), b**j, c**n, d**j], conditions=[n >= 0, j >n])
+    lang = LanguageFormula(expression=[ac ** (n + 1), b ** j, c ** n, d ** j], conditions=[n >= 0, j > n])
 
     print(lang.enumerate_strings(length=15))
 
@@ -1256,7 +1236,7 @@ def test_language_turing_machine_10():
     n, k, d = symbols("n k d")
     a, d, b, c, f = symbols("a d b c f")
 
-    lang = LanguageFormula(expression=[a**(k + n), d**n, b**(k + 1), c**k, f**d],
+    lang = LanguageFormula(expression=[a ** (k + n), d ** n, b ** (k + 1), c ** k, f ** d],
                            conditions=[n >= 0, k >= 0, d < n, d >= 0])
 
     print(lang.enumerate_strings(length=15))
@@ -1280,32 +1260,8 @@ def test_language_turing_machine_11():
     s, n, k = symbols("s n k")
     a, d, b, e = symbols("a d b e")
 
-    lang = LanguageFormula(expression=[a**(2*n), d**(s + 1), b**k, e**n], conditions=[s >= 0, n > 0, k > 0, ~Eq(n, k)])
-
-    lang_machine = TuringParser(language=lang)
-
-    lang_machine.info()
-
-    for data in lang.enumerate_strings(length=20):
-        print("[+] testing string", data)
-        read_status = lang_machine.turing.read(data)
-
-        if not read_status:
-            lang_machine.turing.debug(data)
-            lang_machine.info()
-
-        assert read_status
-
-
-def test_language_turing_machine_12():
-    s, t, n, j = symbols("s t n j")
-    s1, s2, s3, s4, s5 = symbols("1 2 3 4 5")
-
-    lang = LanguageFormula(expression=[s1 ** (2*s + 1), s2 ** j, s3 ** n, s4 ** (t + 2*n), s5 ** (n + 2)],
-                           conditions=[s > 0, t >= 0, n >= 0, j >= 0, j < t, s > j])
-
-    print(lang.enumerate_strings(length=15))
-    print(lang.get_index_space(length=15))
+    lang = LanguageFormula(expression=[a ** (2 * n), d ** (s + 1), b ** k, e ** n],
+                           conditions=[s >= 0, n > 0, k > 0, ~Eq(n, k)])
 
     lang_machine = TuringParser(language=lang)
 
@@ -1326,8 +1282,8 @@ def test_language_union_turing_machine_12():
     n, j, i = symbols("n j i")
     aab, aba, ca, daa, eaa, a, b, c, d, e = symbols("aab aba ca daa eaa a b c d e")
 
-    lang_a = LanguageFormula(expression=[b**n, a**j, c**n, d**i], conditions=[n > 0, j > n, i > 0])
-    lang_b = LanguageFormula(expression=[b**n, a**j, c**(2*n), e**i], conditions=[n > 0, j > n, i > 0])
+    lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i], conditions=[n > 0, j > n, i > 0])
+    lang_b = LanguageFormula(expression=[b ** n, a ** j, c ** (2 * n + 1), e ** i], conditions=[n > 0, j > n, i > 0])
 
     lang = lang_a + lang_b
 
@@ -1352,9 +1308,9 @@ def test_language_union_turing_machine_13():
     n, j, i, r = symbols("n j i r")
     aab, aba, ca, daa, eaa, a, b, c, d, e = symbols("aab aba ca daa eaa a b c d e")
 
-    lang_a = LanguageFormula(expression=[b**n, a**j, c**n, d**i, c ** j, a ** r, c ** r],
+    lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j, a ** r, c ** r],
                              conditions=[n > 0, j > n, i > 0, r >= 0])
-    lang_b = LanguageFormula(expression=[b**n, a**j, c**(2*n + 1), e**i, c**n, c ** i],
+    lang_b = LanguageFormula(expression=[b ** n, a ** j, c ** (2 * n + 1), e ** i, c ** n, c ** i],
                              conditions=[n > 0, j > n, i > 0])
 
     lang = lang_a + lang_b
@@ -1376,70 +1332,322 @@ def test_language_union_turing_machine_13():
         assert read_status
 
 
+def testing_turing_language():
+    test_language_turing_machine_1()
+    test_language_turing_machine_2()
+    test_language_turing_machine_3()
+    test_language_turing_machine_4()
+    test_language_turing_machine_5()
+    test_language_turing_machine_6()
+    test_language_turing_machine_7()
+    test_language_turing_machine_8()
+    test_language_turing_machine_9()
+    test_language_turing_machine_10()
+    test_language_turing_machine_11()
+
+
+class MachinePlan:
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class BlockPlan(MachinePlan):
+    def __init__(self, block, exit_blocks):
+        self.block = block
+        self.exit_blocks = exit_blocks
+
+    def __str__(self):
+        return "block " + str(self.block) + " -> " + str(self.exit_blocks)
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class ParseLoneSymbol(BlockPlan):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "ParseLoneSymbol on " + super().__str__()
+
+
+class ParseAccumulate(BlockPlan):
+    def __init__(self, tape, **kwargs):
+        super().__init__(**kwargs)
+        self.tape = tape
+
+    def __str__(self):
+        return "ParseAccumulate on " + super().__str__() + " in tape " + str(self.tape)
+
+
+class ParseEqual(BlockPlan):
+    def __init__(self, tape, **kwargs):
+        super().__init__(**kwargs)
+        self.tape = tape
+
+    def __str__(self):
+        return "ParseEqual on " + super().__str__() + " in tape " + str(self.tape)
+
+
+class OperationPlan(MachinePlan):
+    def __init__(self, source_tape, target_tape):
+        self.source_tape, self.target_tape = source_tape, target_tape
+
+    def __str__(self):
+        return "tape " + str(self.source_tape) + " and " + str(self.target_tape)
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class Accumulate(OperationPlan):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "Accumulate on " + super().__str__()
+
+
+class CompareGreater(OperationPlan):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "CompareGreater on " + super().__str__()
+
+
+class CompareStrictGreater(OperationPlan):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "CompareStrictGreater on " + super().__str__()
+
+
+class CompareUnequal(OperationPlan):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "CompareUnequal on " + super().__str__()
+
+
+class CompareEqual(OperationPlan):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "CompareEqual on " + super().__str__()
+
+
+class TuringPlanner:
+    END_BLOCK = -1
+
+    def __init__(self, language: LanguageFormula):
+        self.language = language
+
+        self.symbol_tape = dict()
+        self.tapes = list()
+
+        for i, each in enumerate(self.language.symbols):
+            self.tapes.append(i + 1)
+            self.symbol_tape[each] = i + 1
+
+        self.machine_plan = list()
+        self.exit_blocks = dict()
+
+        for i in range(0, len(self.language.expression)):
+            self.exit_blocks[i] = self._get_exit_blocks(i)
+
+        self._process_blocks(current=0)
+
+        self._verify_conditions()
+
+    def info(self):
+        print("\n[+] language")
+        self.language.info()
+
+        print("\n[+] turing planner")
+        print("[+] exit blocks", self.exit_blocks)
+        print("[+] symbol tapes", self.symbol_tape)
+
+        for i, each in enumerate(self.machine_plan):
+            print(i, each)
+
+    def _process_blocks(self, current=0, symbol_stack=None):
+        if symbol_stack is None:
+            symbol_stack = set()
+
+        if current < len(self.language.expression):
+            expr = self.language.expression[current]
+
+            if isinstance(expr, Symbol):
+                self.machine_plan.append(ParseLoneSymbol(block=current, exit_blocks=self.exit_blocks[current]))
+
+            elif isinstance(expr, Pow):
+                if expr.exp not in symbol_stack:
+                    symbol_stack.add(expr.exp)
+
+                    self.machine_plan.append(ParseAccumulate(tape=self.symbol_tape[expr.exp],
+                                                             block=current, exit_blocks=self.exit_blocks[current]))
+
+                else:
+                    self.machine_plan.append(ParseEqual(tape=self.symbol_tape[expr.exp],
+                                                        block=current, exit_blocks=self.exit_blocks[current]))
+
+            self._process_blocks(current + 1, symbol_stack)
+
+    def _verify_conditions(self):
+        if not all([len(c.free_symbols) == 1 for c in self.language.conditions]):
+
+            for c in filter(lambda c: len(c.free_symbols) > 1, self.language.conditions):
+                if not isinstance(c.rhs, Symbol):
+                    symbol, rest = c.rhs.args[0], c.rhs.args[1:]
+                    target_tape = self.symbol_tape[symbol]
+
+                    for each in rest:
+                        source_tape = self.symbol_tape[each]
+                        self.machine_plan.append(Accumulate(target_tape=target_tape, source_tape=source_tape))
+
+                    self.symbol_tape[c.rhs] = target_tape
+
+                if not isinstance(c.lhs, Symbol):
+                    symbol, rest = c.lhs.args[0], c.lhs.args[1:]
+                    target_tape = self.symbol_tape[symbol]
+
+                    for each in rest:
+                        source_tape = self.symbol_tape[each]
+                        self.machine_plan.append(Accumulate(target_tape=target_tape, source_tape=source_tape))
+
+                    self.symbol_tape[c.lhs] = target_tape
+
+                if isinstance(c, Eq):
+                    source_tape = self.symbol_tape[c.lhs]
+                    target_tape = self.symbol_tape[c.rhs]
+
+                    self.machine_plan.append(CompareEqual(target_tape=target_tape, source_tape=source_tape))
+
+                elif isinstance(c, StrictGreaterThan):
+                    source_tape = self.symbol_tape[c.lhs]
+                    target_tape = self.symbol_tape[c.rhs]
+
+                    self.machine_plan.append(CompareStrictGreater(target_tape=target_tape, source_tape=source_tape))
+
+                elif isinstance(c, GreaterThan):
+                    source_tape = self.symbol_tape[c.lhs]
+                    target_tape = self.symbol_tape[c.rhs]
+
+                    self.machine_plan.append(CompareGreater(target_tape=target_tape, source_tape=source_tape))
+
+                elif isinstance(c, StrictLessThan):
+                    source_tape = self.symbol_tape[c.rhs]
+                    target_tape = self.symbol_tape[c.lhs]
+
+                    self.machine_plan.append(CompareStrictGreater(target_tape=target_tape, source_tape=source_tape))
+
+                elif isinstance(c, LessThan):
+                    source_tape = self.symbol_tape[c.rhs]
+                    target_tape = self.symbol_tape[c.lhs]
+
+                    self.machine_plan.append(CompareGreater(target_tape=target_tape, source_tape=source_tape))
+
+                elif isinstance(c, Unequality):
+                    source_tape = self.symbol_tape[c.lhs]
+                    target_tape = self.symbol_tape[c.rhs]
+
+                    self.machine_plan.append(CompareUnequal(target_tape=target_tape, source_tape=source_tape))
+
+    def _get_minimum_indices(self, constraints=None):
+        space = ExponentSpace(sym=self.language.symbols, conditions=self.language.conditions,
+                              length=self.language.total_length)
+
+        return space.get_minimal(constraints)
+
+    def _get_exit_blocks(self, block):
+        if block < len(self.language.expression) - 1:
+            expr = self.language.expression[block]
+
+            if isinstance(expr, Symbol):
+                next_expr = self.language.expression[block + 1]
+
+                if isinstance(next_expr, Symbol):
+                    return [block + 1]
+
+                else:
+                    minimal = self._get_minimum_indices()
+
+                    if all([m[next_expr.exp] for m in minimal]) > 0:
+                        return [block + 1]
+
+                    else:
+                        return self.explore_exit_blocks(block + 1)
+
+            elif isinstance(expr, Pow):
+                next_expr = self.language.expression[block + 1]
+
+                if isinstance(next_expr, Symbol) or expr.exp == next_expr.exp:
+                    return [block + 1]
+
+                else:
+                    minimal = self._get_minimum_indices({expr.exp: 1})
+
+                    if all([m[next_expr.exp] for m in minimal]) > 0:
+                        return [block + 1]
+
+                    else:
+                        return self.explore_exit_blocks(block + 1)
+
+            else:
+                raise RuntimeError("unrecognized expression " + str(expr))
+
+        else:
+            return [TuringPlanner.END_BLOCK]
+
+    def explore_exit_blocks(self, block):
+        stack, exit_blocks = set(), list()
+
+        for b in range(block, len(self.language.expression) + 1):
+            if b < len(self.language.expression):
+                expr = self.language.expression[b]
+
+                if isinstance(expr, Symbol):
+                    exit_blocks.append(b)
+                    break
+
+                if expr.exp not in stack:
+                    exit_blocks.append(b)
+
+                minimal = self._get_minimum_indices()
+
+                if all([m[expr.exp] for m in minimal]) > 0:
+                    break
+
+                stack.add(expr.exp)
+
+            else:
+                exit_blocks.append(TuringPlanner.END_BLOCK)
+
+        return exit_blocks
+
+
 def main():
     print("[+] FD ")
-
-    # n, j, i, r = symbols("n j i r")
-    # aab, aba, ca, daa, eaa, a, b, c, d, e = symbols("aab aba ca daa eaa a b c d e")
-    #
-    # lang_a = LanguageFormula(expression=[b**n, a**j, c**n, d**i],
-    #                          conditions=[n > 0, j > n, i > 0])
-    # lang_b = LanguageFormula(expression=[b**n, a**j, c**(2*n), e**i],
-    #                          conditions=[n > 0, j > n, i > 0])
-    #
-    # lang = lang_a + lang_b
-    #
-    # lang.info()
-    #
-    # lang_machine = TuringParser(language=lang)
-    #
-    # lang_machine.info()
-    #
-    # for data in lang.enumerate_strings(length=25):
-    #     print("[+] testing string", data)
-    #     read_status = lang_machine.turing.read(data)
-    #
-    #     if not read_status:
-    #         lang_machine.turing.debug(data)
-    #         lang_machine.info()
-    #
-    #     assert read_status
-
-    # test_language_turing_machine_1()
-    # test_language_turing_machine_2()
-    # test_language_turing_machine_3()
-    # test_language_turing_machine_4()
-    # test_language_turing_machine_5()
-    # test_language_turing_machine_6()
-    # test_language_turing_machine_7()
-    # test_language_turing_machine_8()
-    # test_language_turing_machine_9()
-    # test_language_turing_machine_10()
-    # test_language_turing_machine_11()
 
     a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
     m, k, n = symbols("m k n")
 
-    cfl = LanguageFormula(expression=[a ** (2*k + 2), e ** n, b ** (k + 1), c ** (k + 3*m)],
+    cfl = LanguageFormula(expression=[a ** (2 * k + 2), e ** n, b ** (k + 1), c ** (k + 3 * m)],
                           conditions=[k >= 0, m >= 0, n > m])
 
     lang_machine = TuringParser(language=cfl)
 
     lang_machine.info()
 
-    # lang_machine.turing.debug("aaaaaaeeeeebccccc")
+    lang_machine.turing.debug("aaaaaaeeeeebccccc")  # it shouldn't detect it
 
-    # lang_machine.info()
-    #
-    # for data in cfl.enumerate_strings(length=20):
-    #     print("[+] testing string", data)
-    #     read_status = lang_machine.turing.read(data)
-    #
-    #     if not read_status:
-    #         lang_machine.turing.debug(data)
-    #         lang_machine.info()
-    #
-    #     assert read_status
 
 
 main()

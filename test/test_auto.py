@@ -829,6 +829,779 @@ def test_case_2_flang():
 
     assert lang.check_grammar(grammar, length=15)
 
+def context_sensitive_grammar_1():
+    a, b, c, ccc = symbols("a b c ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "Z")
+
+    grammar.add("Z", "aZ")
+    grammar.add("Z", "a")
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_2():
+    a, b, c, ccc = symbols("a b c ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "Z")
+
+    grammar.add("Z", "aZb")
+    grammar.add("Z", "ab")
+
+    grammar.enumerate(length=15)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_3():
+    a, b, c, ccc = symbols("a b c ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n, c ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "Z")
+
+    grammar.add("Z", "aZYX")
+    grammar.add("Z", "abX")
+
+    grammar.add("XY", "YX")
+
+    grammar.add("bY", "bb")
+
+    grammar.add("bX", "bc")
+    grammar.add("cX", "cc")
+
+    grammar.enumerate(length=15)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_4():
+    a, b, c, ccc = symbols("a b c ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n, ccc ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "Z")
+
+    grammar.add("Z", "aZYX")
+    grammar.add("Z", "abX")
+
+    grammar.add("XY", "YX")
+
+    grammar.add("bY", "bb")
+
+    grammar.add("bX", "bccc")
+    grammar.add("cccX", "cccccc")
+
+    grammar.enumerate(length=15)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_5():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n, c ** n, d ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+    buffer.run_rule("A", "aABCD", times=4)
+
+    buffer.run_rule_until("A", "abCD")
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    print(grammar)
+
+    assert cfl.check_grammar(grammar, length=9)
+
+
+def context_sensitive_grammar_6():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** n], conditions=[n >= 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+    buffer.run_rule("A", "aABCD", times=4)
+
+    buffer.run_rule("A", "X")
+    buffer.run_rule("X", "aXb", times=2)
+    buffer.run_rule("X", "ab")
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    print(grammar)
+
+    assert cfl.check_grammar(grammar, length=9)
+
+
+def context_sensitive_grammar_7():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** n], conditions=[n > 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+    buffer.run_rule("A", "aABCD", times=4)
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("AB", "aXW")
+
+    buffer.run_rule("X", "aXW", times=3)
+    buffer.run_rule("X", "W")
+
+    buffer.run_rule("aW", "ab")
+    buffer.run_rule_until("bW", "bb")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    print(grammar.enumerate(length=15))
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_8():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** m, b ** n, c ** n, d ** m], conditions=[n > 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+    buffer.run_rule("A", "aABCD", times=2)
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("AB", "XWB")
+
+    buffer.run_rule("X", "aXW", times=2)
+
+    buffer.run_rule("aX", "aa")
+
+    while True:
+        try:
+            buffer.run_rule("aW", "aD")
+
+        except RuntimeError:
+            break
+
+        try:
+            try:
+                buffer.run_rule_until("DW", "WD")
+            except RuntimeError:
+                pass
+
+            buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+            buffer.run_rule_until("DC", "CD")
+
+        except RuntimeError:
+            break
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    print(grammar.enumerate(length=10))
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def context_sensitive_grammar_9():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** n], conditions=[n > 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+    buffer.run_rule("A", "aABCD", times=2)
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("AB", "XWB")
+
+    buffer.run_rule("X", "aXW", times=1)
+
+    buffer.run_rule("aX", "aa")
+
+    while True:
+        try:
+            buffer.run_rule("aW", "aB")
+
+        except RuntimeError:
+            break
+
+        try:
+            try:
+                buffer.run_rule_until("BW", "WB")
+            except RuntimeError:
+                pass
+
+        except RuntimeError:
+            break
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    print(grammar.enumerate(length=10))
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def context_sensitive_grammar_10():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** m, c ** n, d ** m], conditions=[n > 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "aABCD")
+    buffer.run_rule("A", "aABCD", times=2)
+
+    buffer.run_rule_until("A", "X")
+    buffer.run_rule("X", "BXD", times=3)
+    buffer.run_rule("X", "BD")
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    for each in grammar.enumerate(length=7):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def context_sensitive_grammar_11():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    context_sensitive_grammar_10()
+
+    cfl = LanguageFormula(expression=[a ** n, b ** m, c ** m, d ** m], conditions=[n > 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "aABCD")
+
+    buffer.run_rule("A", "aABCD", times=2)
+
+    buffer.run_rule_until("A", "X")
+    buffer.run_rule("X", "XBCD", times=3)
+    buffer.run_rule("X", "BCD")
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    for each in grammar.enumerate(length=7):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=7)
+
+
+def context_sensitive_grammar_12():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    context_sensitive_grammar_10()
+
+    cfl = LanguageFormula(expression=[a ** m, b ** m, c ** m, d ** n], conditions=[n > 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+
+    buffer.run_rule("A", "aABCD", times=2)
+
+    buffer.run_rule_until("aA", "aX")
+
+    buffer.run_rule("X", "aXBC", times=3)
+    buffer.run_rule("X", "aBC")
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    for each in grammar.enumerate(length=15):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_13():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    context_sensitive_grammar_10()
+
+    cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** m], conditions=[n > 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "aABCD")
+
+    buffer.run_rule("A", "aABCD", times=2)
+
+    buffer.run_rule_until("aA", "aX")
+
+    buffer.run_rule("X", "aXBD", times=3)
+    buffer.run_rule("X", "aBD")
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    for each in grammar.enumerate(length=15):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_14():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** m], conditions=[n >= 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+
+    buffer.add_rule("S", "X")
+
+    buffer.run_rule("A", "aABCD", times=2)
+
+    buffer.run_rule_until("aA", "aX")
+
+    buffer.run_rule("X", "aXBD", times=3)
+    buffer.run_rule("X", "aBD")
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.add_rule("bD", "bd")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    for each in grammar.enumerate(length=15):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_15():
+    print("[+] FD ")
+
+    a, b, c, d, w, x, y = symbols("a b c d w x y")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a ** m, b ** n, c ** m], conditions=[n >= 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+    buffer.add_rule("S", "X")
+
+    buffer.run_rule("A", "aABC", times=2)
+
+    buffer.run_rule_until("aA", "aX")
+
+    buffer.run_rule("X", "aXC", times=3)
+    buffer.run_rule("X", "aC")
+
+    buffer.run_rules_until([("CB", "BC")])
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.add_rule("aC", "ac")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+
+    for each in grammar.enumerate(length=15):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+    cfl = LanguageFormula(expression=[x ** j, y ** j, w ** i], conditions=[i >= 0, j > i])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "X")
+
+    buffer.add_rule("S", "Z")
+
+    buffer.run_rule("X", "xXYW", times=2)
+
+    buffer.run_rule_until("xX", "xZ")
+
+    buffer.run_rule("Z", "xZY", times=3)
+    buffer.run_rule("Z", "xY")
+
+    buffer.run_rules_until([("WY", "YW")])
+
+    buffer.run_rule("xY", "xy")
+
+    buffer.run_rule_until("yY", "yy")
+    buffer.run_rule_until("yW", "yw")
+
+    buffer.run_rule_until("wW", "ww")
+
+    for each in grammar.enumerate(length=15):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_16():
+    a, b, c, d, w, x, y = symbols("a b c d w x y")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a ** m, x ** j, b ** n, c ** m, y ** j, w ** i],
+                          conditions=[n > 0, m > n, i > 0, j > i])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "AZ")
+
+    buffer.run_rule("A", "aABC", times=3)
+
+    buffer.run_rule("Z", "ZXYW", times=3)
+    buffer.run_rule("Z", "TXYW")
+
+    buffer.run_rule("A", "aABC", times=2)
+
+    buffer.run_rule_until("aA", "aR")
+
+    buffer.run_rule("R", "aRC", times=3)
+    buffer.run_rule("R", "aC")
+
+    buffer.run_rule("T", "XTY", times=3)
+    buffer.run_rule("XT", "X")
+
+    buffer.run_rules_until([("WX", "XW"), ("YX", "XY")])
+
+    buffer.run_rules_until([("CX", "XC")])
+
+    buffer.run_rules_until([("BX", "XB"), ("CX", "XC")])
+
+    buffer.run_rules_until([("CB", "BC")])
+
+    buffer.run_rules_until([("WY", "YW")])
+
+    buffer.run_rule_until("aX", "ax")
+    buffer.run_rule_until("xX", "xx")
+
+    buffer.run_rule_until("xB", "xb")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+
+    buffer.run_rule_until("cY", "cy")
+
+    buffer.run_rule_until("yY", "yy")
+    buffer.run_rule_until("yW", "yw")
+
+    buffer.run_rule_until("wW", "ww")
+
+    for each in grammar.enumerate(length=14):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=14)
+
+
+def context_sensitive_grammar_17():
+    a, b, c, d, cc = symbols("a b c d cc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** m, b, b ** m, cc, c ** n, d ** m], conditions=[n >= 0, m > n])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "A")
+
+    buffer.add_rule("S", "X")
+
+    buffer.run_rule("A", "aABCD", times=2)
+
+    buffer.run_rule_until("aA", "aX")
+
+    buffer.run_rule("X", "aXBD", times=3)
+    buffer.run_rule("X", "aBD")
+
+    buffer.run_rules_until([("DB", "BD"), ("CB", "BC")])
+    buffer.run_rule_until("DC", "CD")
+
+    buffer.run_rule_until("aB", "abb")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bccc")
+
+    buffer.add_rule("bD", "bccd")
+
+    buffer.run_rule_until("cC", "cc")
+    buffer.run_rule_until("cD", "cd")
+
+    buffer.run_rule_until("dD", "dd")
+
+    for each in grammar.enumerate(length=15):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def context_sensitive_grammar_18():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    k, m, n = symbols("k m n")
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, c ** m],
+                          conditions=[m >= 0, k >= 0, n > m])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "JM")
+    buffer.run_rule("J", "aa")
+
+    buffer.add_rule("S", "aaeb")
+
+    buffer.run_rule("M", "NMC", times=3)
+    buffer.run_rule("M", "NLC")
+
+    buffer.run_rule("N", "eN", times=3)
+
+    buffer.run_rule_until("eN", "ee")
+
+    buffer.run_rule_until("eL", "eb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+
+    buffer.reset()
+
+    buffer.run_rule("S", "JNL")
+    buffer.run_rule("J", "aa")
+
+    buffer.run_rule("N", "eN", times=7)
+
+    buffer.run_rule_until("eN", "ee")
+
+    buffer.run_rule_until("eL", "eb")
+
+    buffer.reset()
+
+    buffer.run_rule("S", "JAZ")
+    buffer.run_rule("J", "aa")
+
+    buffer.add_rule("S", "JZ")
+
+    buffer.run_rule("A", "aaABC", times=3)
+    buffer.run_rule("A", "aaBC")
+
+    buffer.run_rule("Z", "YZC", times=3)
+    buffer.run_rule("Z", "YLC")
+
+    buffer.run_rule("Y", "EY", times=3)
+
+    buffer.run_rule_until("EY", "EE")
+
+    buffer.run_rules_until([("CE", "EC"), ("BE", "EB")])
+    buffer.run_rules_until([("CB", "BC")])
+
+    buffer.run_rules_until([("CL", "LC"), ("BL", "LB")])
+    buffer.run_rules_until([("CB", "BC")])
+
+    buffer.run_rule_until("aaE", "aae")
+
+    buffer.run_rule_until("eE", "ee")
+
+    buffer.run_rule_until("eL", "eb")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+
+    buffer.reset()
+
+    buffer.run_rule("S", "JAYL")
+    buffer.add_rule("S", "JAEL")
+
+    buffer.run_rule("J", "aa")
+
+    buffer.run_rule("Y", "EY", times=3)
+    buffer.run_rule_until("EY", "EE")
+
+    buffer.run_rule("A", "aaABC", times=3)
+    buffer.run_rule("A", "aaBC")
+
+    buffer.run_rules_until([("CB", "BC")])
+
+    buffer.run_rules_until([("CE", "EC"), ("BE", "EB")])
+    buffer.run_rules_until([("CL", "LC"), ("BL", "LB")])
+
+    buffer.run_rule_until("aaE", "aae")
+
+    buffer.run_rule_until("eE", "ee")
+
+    buffer.run_rule_until("eL", "eb")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+
+    for each in grammar.enumerate(length=10):
+        grammar.print_stack(each)
+
+    assert cfl.check_grammar(grammar, length=10)
+
+    print(grammar)
+
 
 def run_cases():
     print("[+] running test case 1")
@@ -952,6 +1725,25 @@ def run_cases():
 
     print("[+] testing formula language 2")
     test_case_2_flang()
+
+    print("[+] testing context sensitive grammars")
+    context_sensitive_grammar_1()
+    context_sensitive_grammar_2()
+    context_sensitive_grammar_4()
+    context_sensitive_grammar_5()
+    context_sensitive_grammar_6()
+    context_sensitive_grammar_7()
+    context_sensitive_grammar_8()
+    context_sensitive_grammar_9()
+    context_sensitive_grammar_10()
+    context_sensitive_grammar_11()
+    context_sensitive_grammar_12()
+    context_sensitive_grammar_13()
+    context_sensitive_grammar_14()
+    context_sensitive_grammar_15()
+    context_sensitive_grammar_16()
+    context_sensitive_grammar_17()
+    context_sensitive_grammar_18()
 
 
 run_cases()
