@@ -78,36 +78,18 @@ class TuringDelta(Delta):
         super().__init__()
         self.tapes = tapes
 
-    def _add_transition(self, source, target, delta):
-        if not self.tapes:
-            self.tapes = len(delta)
-        else:
-            if self.tapes != len(delta):
-                raise RuntimeError("invalid number of tapes (" + str(len(delta)) + ") - expected " + str(self.tapes))
+        # state management
+        self.state_counter = 0
+        self.state_description = {}
 
-        if source not in self.transitions:
-            self.transitions[source] = []
+    def get_new_state(self, prefix, description):
+        self.state_counter += 1
 
-        transition_symbols, actions = [], {}
-        for tape in delta:
-            action = delta[tape]
-            actions[tape] = action.get()
+        new_state = State(prefix + str(self.state_counter))
 
-            if action.symbol != Tape.BLANK:
-                self.alphabet.add(action.symbol)
+        self.state_description[new_state] = description
 
-        transition = Transition(source=source, target=target, action=InputAction(actions=actions))
-
-        if source in self.transitions:
-            if any([transition == t for t in self.transitions[transition.source]]):
-                print("[+] skipping repeated transition", transition)
-                return None
-
-        self.transitions[source].append(transition)
-
-        transition_symbols.append(str(transition))
-
-        return transition_symbols
+        return new_state
 
     def merge_transition(self, transition):
         if transition.source in self.transitions:
@@ -142,6 +124,37 @@ class TuringDelta(Delta):
                 transition.action.actions[Tape.N(self.tapes)] = [NoneAction(on_symbol=Tape.BLANK)]
 
         self.tapes += 1
+
+    def _add_transition(self, source, target, delta):
+        if not self.tapes:
+            self.tapes = len(delta)
+        else:
+            if self.tapes != len(delta):
+                raise RuntimeError("invalid number of tapes (" + str(len(delta)) + ") - expected " + str(self.tapes))
+
+        if source not in self.transitions:
+            self.transitions[source] = []
+
+        transition_symbols, actions = [], {}
+        for tape in delta:
+            action = delta[tape]
+            actions[tape] = action.get()
+
+            if action.symbol != Tape.BLANK:
+                self.alphabet.add(action.symbol)
+
+        transition = Transition(source=source, target=target, action=InputAction(actions=actions))
+
+        if source in self.transitions:
+            if any([transition == t for t in self.transitions[transition.source]]):
+                print("[+] skipping repeated transition", transition)
+                return None
+
+        self.transitions[source].append(transition)
+
+        transition_symbols.append(str(transition))
+
+        return transition_symbols
 
 # --------------------------------------------------------------------
 #

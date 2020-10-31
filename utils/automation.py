@@ -17,12 +17,11 @@ class MachinePlan:
 
 
 class BlockPlan(MachinePlan):
-    def __init__(self, block, exit_blocks):
+    def __init__(self, block):
         self.block = block
-        self.exit_blocks = exit_blocks
 
     def __str__(self):
-        return "block " + str(self.block) + " -> " + str(self.exit_blocks)
+        return "block " + str(self.block)
 
     def __repr__(self):
         return self.__str__()
@@ -244,18 +243,18 @@ class AutomaticTuringPlanner(TuringPlanner):
             expr = self.language.expression[current]
 
             if isinstance(expr, Symbol):
-                self.machine_plan.append(ParseLoneSymbol(block=current, exit_blocks=self.exit_blocks[current]))
+                self.machine_plan.append(ParseLoneSymbol(block=current))
 
             elif isinstance(expr, Pow):
                 if expr.exp not in symbol_stack:
                     symbol_stack.add(expr.exp)
 
                     self.machine_plan.append(ParseAccumulate(tape=self.symbol_tape[expr.exp],
-                                                             block=current, exit_blocks=self.exit_blocks[current]))
+                                                             block=current))
 
                 else:
                     self.machine_plan.append(ParseEqual(tape=self.symbol_tape[expr.exp],
-                                                        block=current, exit_blocks=self.exit_blocks[current]))
+                                                        block=current))
 
             self._process_blocks(current + 1, symbol_stack)
 
@@ -329,21 +328,11 @@ class AutomaticTuringPlanner(TuringPlanner):
 
 class MachineBuilder:
     def __init__(self, planner, prefix="z"):
-        self.planner = planner
+        self.planner, self.language = planner, planner.language
 
-        self.language = LanguageFormula.normalize(self.planner.language)
+        self.transition = TuringDelta(tapes=len(self.planner.tapes) + 1)
 
-        self.transition = TuringDelta(tapes=1)
-
-        self.prefix = prefix
-        self.initial_state = State(self.prefix + "0")
-
-        self.state_counter = 0
-
-        self.state_description = {}
-
-        for _ in self.planner.tapes:
-            self.transition.add_tape()
+        self.prefix, self.initial_state = prefix, State(prefix + "0")
 
         self.minimal = self._get_minimum_indices()
 
@@ -359,7 +348,7 @@ class MachineBuilder:
 
         self.parsed_state = self._get_new_state(description="state after parsing all blocks")
 
-        self.state_from_block[AutomaticTuringPlanner.END_BLOCK] = self.parsed_state
+        self.state_from_block[TuringPlanner.END_BLOCK] = self.parsed_state
 
         for block in self.planner.explore_exit_blocks(0):
             state = self.state_from_block[block]
@@ -387,8 +376,8 @@ class MachineBuilder:
         print("[+] conditions", self.language.conditions)
 
         print("[+] state description")
-        for state in self.state_description:
-            print("[+] state " + str(state) + " -> " + self.state_description[state])
+        for state in self.transition.state_description:
+            print("[+] state " + str(state) + " -> " + self.transition.state_description[state])
 
         print("[*] turing machine")
         print(self.turing.transition)
@@ -800,13 +789,7 @@ class MachineBuilder:
         return {C(tape): A(Tape.BLANK, move=Stay()) for tape in [0] + self.planner.tapes}
 
     def _get_new_state(self, description):
-        self.state_counter += 1
-
-        new_state = State(self.initial_state.prefix + str(self.state_counter))
-
-        self.state_description[new_state] = description
-
-        return new_state
+        return self.transition.get_new_state(self.prefix, description)
 
 # --------------------------------------------------------------------
 #
