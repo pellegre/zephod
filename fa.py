@@ -1,4 +1,4 @@
-from utils.automation import *
+from utils.automaton.planner import *
 
 from utils.function import *
 
@@ -833,7 +833,6 @@ def testing_turing_language():
 
     lang_machine.info()
 
-    lang_machine.turing.debug("aaaaaaeeeeebccccc")  # it shouldn't detect it
     assert not lang_machine.turing.read("aaaaaaeeeeebccccc")  # it shouldn't detect it
 
 

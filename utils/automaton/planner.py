@@ -160,7 +160,7 @@ class TuringPlanner:
                 stack.add(expr.exp)
 
             else:
-                exit_blocks.append(AutomaticTuringPlanner.END_BLOCK)
+                exit_blocks.append(AutomaticPlanner.END_BLOCK)
 
         return exit_blocks
 
@@ -217,7 +217,7 @@ class TuringPlanner:
 # --------------------------------------------------------------------
 
 
-class AutomaticTuringPlanner(TuringPlanner):
+class AutomaticPlanner(TuringPlanner):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -406,15 +406,13 @@ class MachineBuilder:
                 final_states = [self.state_from_block[block] for block in self.planner.exit_blocks[current_block]]
 
                 if isinstance(plan, ParseLoneSymbol):
-                    self._parse_lone_symbol(self._get_word_for_block(current_block), state, final_states)
+                    self._parse_lone_symbol(state, final_states)
 
                 elif isinstance(plan, ParseAccumulate):
-                    self._parse_block_and_count(plan.tape, self._get_word_for_block(current_block),
-                                                state, final_states)
+                    self._parse_block_and_accumulate(plan.tape, state, final_states)
 
                 elif isinstance(plan, ParseEqual):
-                    self._parse_block_exact_equal(plan.tape, self._get_word_for_block(current_block),
-                                                  state, final_states)
+                    self._parse_block_exact_equal(plan.tape, state, final_states)
 
                 else:
                     raise RuntimeError("unhandled plan " + str(plan))
@@ -640,8 +638,9 @@ class MachineBuilder:
 
         return final_state
 
-    def _parse_block_exact_equal(self, counter_tape, word, initial_state, final_states):
+    def _parse_block_exact_equal(self, counter_tape, initial_state, final_states):
         block = self.block_from_state[initial_state]
+        word = self._get_word_for_block(block)
 
         rewind_state = self._get_new_state(description="rewind " + C(counter_tape) + " after parsing block " +
                                                        str(block) + " (" + str(self.language.expression[block]) + ")")
@@ -689,8 +688,9 @@ class MachineBuilder:
 
             current_state = next_state
 
-    def _parse_block_and_count(self, counter_tape, word, initial_state, final_states):
+    def _parse_block_and_accumulate(self, counter_tape, initial_state, final_states):
         block = self.block_from_state[initial_state]
+        word = self._get_word_for_block(block)
 
         expr = self.language.expression[block]
 
@@ -727,8 +727,11 @@ class MachineBuilder:
             else:
                 self.transition.add(current_state, each, delta)
 
-    def _parse_lone_symbol(self, word, initial_state, final_states):
+    def _parse_lone_symbol(self, initial_state, final_states):
         current_state = initial_state
+
+        block = self.block_from_state[initial_state]
+        word = self._get_word_for_block(block)
 
         for i in range(0, len(word)):
             next_state = self._get_new_state(description="parsing letter " + word[i] +
@@ -800,7 +803,7 @@ class MachineBuilder:
 
 class LanguageMachine(MachineBuilder):
     def __init__(self, language):
-        super().__init__(planner=AutomaticTuringPlanner(language=LanguageFormula.normalize(language)))
+        super().__init__(planner=AutomaticPlanner(language=LanguageFormula.normalize(language)))
 
 
 class TuringParser:
@@ -813,7 +816,7 @@ class TuringParser:
             raise RuntimeError("can't build machine from " + str(type(language)))
 
         if isinstance(language, LanguageFormula):
-            planner = AutomaticTuringPlanner(language=LanguageFormula.normalize(language))
+            planner = AutomaticPlanner(language=LanguageFormula.normalize(language))
             language_machine = MachineBuilder(planner=planner)
 
             self.language_machines.append(language_machine)
@@ -823,7 +826,7 @@ class TuringParser:
 
             planners = []
             for ll in language.languages:
-                planners.append(AutomaticTuringPlanner(language=LanguageFormula.normalize(ll)))
+                planners.append(AutomaticPlanner(language=LanguageFormula.normalize(ll)))
 
             max_tapes = max([max(p.tapes) for p in planners])
 
