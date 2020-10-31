@@ -326,9 +326,10 @@ class LanguageGrammar:
         return self.get_non_terminal_from_counter(self.non_terminal_counter)
 
 
-class LanguageMachine:
-    def __init__(self, language, prefix="z"):
-        self.language = LanguageFormula.normalize(language)
+class MachineBuilder:
+    def __init__(self, planner, prefix="z"):
+        self.planner = planner
+        self.language = LanguageFormula.normalize(self.planner.language)
 
         self.transition = TuringDelta(tapes=1)
 
@@ -338,8 +339,6 @@ class LanguageMachine:
         self.state_counter = 0
 
         self.state_description = {}
-
-        self.planner = TuringPlanner(language=self.language)
 
         for _ in self.planner.tapes:
             self.transition.add_tape()
@@ -426,6 +425,9 @@ class LanguageMachine:
                     self._parse_block_exact_equal(plan.tape, self._get_word_for_block(current_block),
                                                   state, final_states)
 
+                else:
+                    raise RuntimeError("unhandled plan " + str(plan))
+
                 next_state = self.parsed_state
 
             elif isinstance(plan, OperationPlan):
@@ -446,6 +448,12 @@ class LanguageMachine:
 
                 elif isinstance(plan, CompareEqual):
                     next_state = self._verify_equal_counters(next_state, source_tape, target_tape)
+
+                else:
+                    raise RuntimeError("unhandled plan " + str(plan))
+
+            else:
+                raise RuntimeError("unhandled plan " + str(plan))
 
         return next_state
 
@@ -799,6 +807,11 @@ class LanguageMachine:
         return new_state
 
 
+class LanguageMachine(MachineBuilder):
+    def __init__(self, language):
+        super().__init__(planner=TuringPlanner(language=LanguageFormula.normalize(language)))
+
+
 class TuringParser:
     def __init__(self, language):
         self.language = language
@@ -815,25 +828,23 @@ class TuringParser:
             self.turing = language_machine.turing
 
         elif isinstance(language, LanguageUnion):
-            for i, language in enumerate(language.languages):
-                language_machine = LanguageMachine(language=language)
+
+            planners = []
+            for l in language.languages:
+                planners.append(TuringPlanner(language=LanguageFormula.normalize(l)))
+
+            max_tapes = max([max(p.tapes) for p in planners])
+
+            for planner in planners:
+                for i in range(len(planner.tapes), max_tapes):
+                    planner.tapes.append(i + 1)
+
+            for planner in planners:
+                language_machine = MachineBuilder(planner=planner)
 
                 self.language_machines.append(language_machine)
 
-            combined = TuringDelta(tapes=max(self.language_machines,
-                                             key=lambda l: l.turing.transition.tapes).transition.tapes)
-
-            for machine in self.language_machines:
-                for i in range(machine.turing.transition.tapes, combined.tapes):
-                    machine.turing.transition.add_tape()
-
-            deltas = [copy.deepcopy(machine.turing.transition) for machine in self.language_machines]
-
-            for delta in deltas:
-                for j in range(delta.tapes, combined.tapes):
-                    delta.add_tape()
-
-            self._join_machines(state=0, deltas=deltas, combined=combined)
+            combined = self._join_machines()
 
             final_states = {trans.target for state in combined.transitions
                             for trans in combined.transitions[state] if trans.target not in combined.transitions}
@@ -849,6 +860,17 @@ class TuringParser:
 
         print("[*] turing machine")
         print(self.turing.transition)
+
+        if self.turing.is_non_deterministic():
+            non_deterministic_deltas = dict()
+            print("[+] non deterministic :", self.turing.is_non_deterministic(deltas=non_deterministic_deltas))
+            if len(non_deterministic_deltas):
+                for state in non_deterministic_deltas:
+                    for each in non_deterministic_deltas[state]:
+                        print("[+] -", each)
+
+        else:
+            print("[*] the turing machine is deterministic :)")
 
     @staticmethod
     def _check_equal_prefix(deltas):
@@ -866,9 +888,8 @@ class TuringParser:
         return reduce(lambda s, t: transitions[s] == transitions[t], transitions)
 
     def _reprefix_transition(self, state, transition, prefix, first=None):
-        if not first:
+        if first is None:
             first = state
-            print(" first ---> " + str(state) + " " + prefix)
 
         if state in transition:
             for each in transition[state]:
@@ -879,49 +900,80 @@ class TuringParser:
                     if each.source != first:
                         each.source = State(prefix + str(each.source.number))
 
-                    print(" ---> each.target != state " + str(each.target) + " " + str(state) + "   " + str(each))
-
                     self._reprefix_transition(previous_state, transition, prefix, first)
 
-    def _join_machines(self, state, deltas, combined):
-        transitions = {}
-        current_state = State(self.language_machines[0].prefix + str(state))
+    def _join_machines(self):
+        combined = TuringDelta(tapes=max(self.language_machines,
+                                         key=lambda l: l.turing.transition.tapes).transition.tapes)
 
-        for i in range(len(self.language_machines)):
-            transition = deltas[i]
+        for machine in self.language_machines:
+            for i in range(machine.turing.transition.tapes, combined.tapes):
+                machine.turing.transition.add_tape()
 
-            if current_state in transition.delta:
-                transitions[i] = {current_state: transition.transitions[current_state]}
+        deltas = [copy.deepcopy(machine.turing.transition) for machine in self.language_machines]
 
-        print("_check_equal_prefix", self._check_equal_prefix(transitions))
-        print("_check_equal_states", self._check_equal_states(transitions))
+        for delta in deltas:
+            for j in range(delta.tapes, combined.tapes):
+                delta.add_tape()
 
-        if self._check_equal_prefix(transitions) and self._check_equal_states(transitions):
-            first_machine = next(iter(transitions))
+        delta_stack = {i: delta for i, delta in enumerate(deltas)}
 
-            for each in transitions[first_machine]:
-                for transition in transitions[first_machine][each]:
+        for block in range(0, len(max(self.language_machines,
+                                  key=lambda l: len(l.language.expression)).language.expression)):
+
+            for i in list(delta_stack):
+                if len(self.language_machines[i].language.expression) == block:
+                    del delta_stack[i]
+
+            if len(delta_stack) == 1:
+                break
+
+            for k in filter(lambda d: d in delta_stack, list(delta_stack)):
+                expr = self.language_machines[k].language.expression[block]
+                minimal = sorted(m[expr.exp] for m in self.language_machines[k].minimal)
+
+                for m in filter(lambda d: d != k and d in delta_stack, list(delta_stack)):
+                    other = self.language_machines[m].language.expression[block]
+
+                    should_reprefix = False
+
+                    if isinstance(other, Pow) and isinstance(expr, Pow):
+                        other_minimal = sorted(m[expr.exp] for m in self.language_machines[m].minimal)
+
+                        if len(other_minimal) != len(minimal) or \
+                                any([o != e for o, e in zip(other_minimal, minimal)]) or other.base != expr.base:
+                            should_reprefix = True
+
+                    elif isinstance(other, Symbol) and isinstance(expr, Symbol):
+                        if other != expr:
+                            should_reprefix = True
+
+                    else:
+                        should_reprefix = True
+
+                    if should_reprefix:
+                        machine = self.language_machines[m]
+                        current_prefix = machine.prefix
+
+                        state = self._get_state_for_block(m, block - 1)
+
+                        self._reprefix_transition(state, deltas[m].transitions, chr(ord(current_prefix) - m))
+
+                        del delta_stack[m]
+
+        for i in range(0, len(deltas)):
+            for each in deltas[i].transitions:
+                for transition in deltas[i].transitions[each]:
                     combined.merge_transition(transition)
 
-            # split = False
-            # block = self.language_machines[0].block_from_state[current_state]
-            # block_expression = [m.language.expression[block] for m in self.language_machines]
+        return combined
 
-            if not self._check_equal_transitions(transitions):
-                for i in range(1, len(transitions)):
-                    machine = self.language_machines[i]
-                    current_prefix = machine.prefix
+    def _get_state_for_block(self, m, block):
+        if block < 0:
+            return self.language_machines[m].initial_state
 
-                    current_state = State(machine.prefix + str(state))
-                    self._reprefix_transition(current_state, deltas[i].transitions, chr(ord(current_prefix) - i))
-
-        for m in transitions:
-            for each in transitions[m]:
-                for transition in transitions[m][each]:
-                    combined.merge_transition(transition)
-
-        if len(transitions) > 0:
-            self._join_machines(state + 1, deltas, combined)
+        else:
+            return self.language_machines[m].state_from_block[block]
 
 
 def test_language_turing_machine_1():
@@ -1332,6 +1384,82 @@ def test_language_union_turing_machine_13():
         assert read_status
 
 
+def test_language_union_turing_machine_14():
+    n, j, i, r = symbols("n j i r")
+    aab, aba, ca, daa, eaa, a, b, c, d, e = symbols("aab aba ca daa eaa a b c d e")
+
+    lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j, a ** r, c ** r],
+                             conditions=[n > 0, j > n, i > 0, r >= 0])
+    lang_b = LanguageFormula(expression=[b ** n, a ** j, c ** (2 * n), e ** i, c ** n, c ** i],
+                             conditions=[n > 0, j > n, i > 0])
+
+    lang = lang_a + lang_b
+
+    lang.info()
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=25):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+    lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j, a ** r, c ** r],
+                             conditions=[n > 0, j > n, i > 0, r >= 0])
+
+    lang_b = LanguageFormula(expression=[b ** n, a ** j, d ** (2 * n), e ** i, c ** n, c ** i],
+                             conditions=[n > 0, j > n, i > 0])
+
+    lang = lang_a + lang_b
+
+    lang.info()
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=25):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+    # lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j, a ** r, c ** r],
+    #                          conditions=[n > 0, j > n, i > 0, r >= 0])
+    #
+    # lang_b = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j],
+    #                          conditions=[n > 0, j > n, i > 0, r >= 0])
+    #
+    # lang = lang_a + lang_b
+    #
+    # lang.info()
+    #
+    # lang_machine = TuringParser(language=lang)
+    #
+    # lang_machine.info()
+    #
+    # for data in lang.enumerate_strings(length=25):
+    #     print("[+] testing string", data)
+    #     read_status = lang_machine.turing.read(data)
+    #
+    #     if not read_status:
+    #         lang_machine.turing.debug(data)
+    #         lang_machine.info()
+    #
+    #     assert read_status
+
+
 def testing_turing_language():
     test_language_turing_machine_1()
     test_language_turing_machine_2()
@@ -1344,6 +1472,23 @@ def testing_turing_language():
     test_language_turing_machine_9()
     test_language_turing_machine_10()
     test_language_turing_machine_11()
+
+    test_language_union_turing_machine_12()
+    test_language_union_turing_machine_13()
+    test_language_union_turing_machine_14()
+
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** (2 * k + 2), e ** n, b ** (k + 1), c ** (k + 3 * m)],
+                          conditions=[k >= 0, m >= 0, n > m])
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    lang_machine.turing.debug("aaaaaaeeeeebccccc")  # it shouldn't detect it
+    assert not lang_machine.turing.read("aaaaaaeeeeebccccc")  # it shouldn't detect it
 
 
 class MachinePlan:
@@ -1403,6 +1548,14 @@ class OperationPlan(MachinePlan):
         return self.__str__()
 
 
+class RewindAll(MachinePlan):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "Rewind all tapes"
+
+
 class Accumulate(OperationPlan):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -1452,7 +1605,13 @@ class TuringPlanner:
         self.symbol_tape = dict()
         self.tapes = list()
 
-        for i, each in enumerate(self.language.symbols):
+        expression_symbols = list()
+        for each in self.language.expression:
+            if isinstance(each, Pow):
+                if each.exp not in expression_symbols:
+                    expression_symbols.append(each.exp)
+
+        for i, each in enumerate(expression_symbols):
             self.tapes.append(i + 1)
             self.symbol_tape[each] = i + 1
 
@@ -1635,19 +1794,7 @@ class TuringPlanner:
 
 def main():
     print("[+] FD ")
-
-    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
-    m, k, n = symbols("m k n")
-
-    cfl = LanguageFormula(expression=[a ** (2 * k + 2), e ** n, b ** (k + 1), c ** (k + 3 * m)],
-                          conditions=[k >= 0, m >= 0, n > m])
-
-    lang_machine = TuringParser(language=cfl)
-
-    lang_machine.info()
-
-    lang_machine.turing.debug("aaaaaaeeeeebccccc")  # it shouldn't detect it
-
+    testing_turing_language()
 
 
 main()

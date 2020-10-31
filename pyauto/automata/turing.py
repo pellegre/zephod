@@ -7,6 +7,8 @@ from sympy.assumptions.refine import *
 
 from functools import reduce
 
+from itertools import product
+
 
 import shutil
 
@@ -167,7 +169,8 @@ class TuringMachine(Automata):
             for transition in self.transition.transitions[each]:
                 for other in filter(lambda t: t is not transition, self.transition.transitions[each]):
 
-                    if str(transition.action) == str(other.action):
+                    if all([t[0].on_symbol == o[0].on_symbol
+                            for t, o in zip(transition.action.actions.values(), other.action.actions.values())]):
                         is_non_deterministic = True
 
                         if deltas is not None:
