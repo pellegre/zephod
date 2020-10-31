@@ -5,7 +5,7 @@ import sympy
 
 from pyauto.grammar import *
 
-from utils.builder import *
+from utils.plotter import *
 
 # --------------------------------------------------------------------
 #
