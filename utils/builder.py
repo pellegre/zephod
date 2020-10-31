@@ -1,10 +1,10 @@
-from pyauto.automata.finite import *
-from pyauto.automata.turing import *
-
 import pandas
 import random
 import string
 import subprocess
+
+from pyauto.automata.finite import *
+from pyauto.automata.turing import *
 
 
 class TuringPlotter:

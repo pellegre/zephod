@@ -1,13 +1,11 @@
-from pyauto.grammar import *
-
-from utils.builder import *
-
 from sympy import *
 
 import itertools
-import pandas
 import sympy
-from functools import reduce
+
+from pyauto.grammar import *
+
+from utils.builder import *
 
 # --------------------------------------------------------------------
 #
