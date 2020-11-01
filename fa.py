@@ -835,6 +835,11 @@ def test_planner_turing_machine_15():
     assert tester.test({C(0): "ababab", C(1): "XZZZ"}, word="ab")
     assert not tester.test({C(0): "ababab", C(1): "XZZ"}, word="ab")
 
+    tester = PlanTester(plan=Accumulate(source_tape=0, target_tape=1),
+                        language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
+
+    assert tester.test({C(0): "XZZZ", C(1): "XZZZ"}, checker=lambda i: i.tapes[C(1)].data() == "XZZZZZZB0")
+
 
 def testing_turing_language():
     test_language_turing_machine_1()
@@ -853,6 +858,8 @@ def testing_turing_language():
     test_language_union_turing_machine_13()
     test_language_union_turing_machine_14()
 
+    test_planner_turing_machine_15()
+
     a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
     m, k, n = symbols("m k n")
 
@@ -869,9 +876,7 @@ def testing_turing_language():
 def main():
     print("[+] FD ")
 
-    # testing_turing_language()
-
-    test_planner_turing_machine_15()
+    testing_turing_language()
 
 
 main()

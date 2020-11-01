@@ -183,6 +183,48 @@ class Accumulate(OperationPlan):
     def __str__(self):
         return "Accumulate on " + super().__str__()
 
+    def __call__(self, transition: TuringDelta, initial: State):
+        result = self.target_tape
+        tape = self.source_tape
+
+        next_state = initial
+        prefix = initial.prefix
+
+        left_state = transition.get_new_state(prefix=prefix, description="moving left while accumulating C" +
+                                                          str(tape) + " on " + C(result))
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A(Tape.BLANK, move=Left())
+        transition.add(next_state, left_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(Tape.BLANK, new="Z", move=Right())
+        delta[C(tape)] = A("Z", move=Left())
+        transition.add(left_state, left_state, delta)
+
+        right_state = transition.get_new_state(prefix=prefix, description="hit X while accumulating C" +
+                                                           str(tape) + " on " + C(result))
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A("X", move=Right())
+        transition.add(left_state, right_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A("Z", move=Right())
+        transition.add(right_state, right_state, delta)
+
+        next_state = transition.get_new_state(prefix=prefix, description="rewind " + C(tape) + " after accumulating")
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A(Tape.BLANK, move=Stay())
+        transition.add(right_state, next_state, delta)
+
+        return next_state
+
 
 class CompareGreater(OperationPlan):
     def __init__(self, **kwargs):
@@ -190,6 +232,56 @@ class CompareGreater(OperationPlan):
 
     def __str__(self):
         return "CompareGreater on " + super().__str__()
+
+    def __call__(self, transition: TuringDelta, initial: State):
+        prefix = initial.prefix
+
+        tape_a = self.source_tape
+        tape_b = self.target_tape
+
+        left_state = transition.get_new_state(prefix=prefix,
+                                              description="moving left while comparing (greater / equal) " +
+                                                          C(tape_a) + " >= " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A(Tape.BLANK, move=Left())
+        delta[C(tape_b)] = A(Tape.BLANK, move=Left())
+        transition.add(initial, left_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Left())
+        delta[C(tape_b)] = A("Z", move=Left())
+        transition.add(left_state, left_state, delta)
+
+        right_state = transition.get_new_state(prefix=prefix,
+                                               description="hit X after comparing (greater / equal) " + C(tape_a) +
+                                                           " >= " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Right())
+        delta[C(tape_b)] = A("X", move=Right())
+        transition.add(left_state, right_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("X", move=Right())
+        delta[C(tape_b)] = A("X", move=Right())
+        transition.add(left_state, right_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Right())
+        delta[C(tape_b)] = A("Z", move=Right())
+        transition.add(right_state, right_state, delta)
+
+        final_state = transition.get_new_state(prefix=prefix,
+                                               description="moving right (rewind) after comparing (greater / equal) " +
+                                                           C(tape_a) + " >= " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape_b)] = A(Tape.BLANK, move=Stay())
+        transition.add(right_state, final_state, delta)
+
+        return final_state
 
 
 class CompareStrictGreater(OperationPlan):
@@ -199,6 +291,51 @@ class CompareStrictGreater(OperationPlan):
     def __str__(self):
         return "CompareStrictGreater on " + super().__str__()
 
+    def __call__(self, transition: TuringDelta, initial: State):
+        prefix = initial.prefix
+
+        tape_a = self.source_tape
+        tape_b = self.target_tape
+
+        left_state = transition.get_new_state(prefix=prefix,
+                                              description="moving left while comparing (greater) " +
+                                                          C(tape_a) + " > " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A(Tape.BLANK, move=Left())
+        delta[C(tape_b)] = A(Tape.BLANK, move=Left())
+        transition.add(initial, left_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Left())
+        delta[C(tape_b)] = A("Z", move=Left())
+        transition.add(left_state, left_state, delta)
+
+        right_state = transition.get_new_state(prefix=prefix,
+                                               description="hit X after comparing (greater) " +
+                                                           C(tape_a) + " > " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Right())
+        delta[C(tape_b)] = A("X", move=Right())
+        transition.add(left_state, right_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Right())
+        delta[C(tape_b)] = A("Z", move=Right())
+        transition.add(right_state, right_state, delta)
+
+        final_state = transition.get_new_state(prefix=prefix,
+                                               description="moving right (rewind) after comparing (greater) " +
+                                                           C(tape_a) + " > " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape_b)] = A(Tape.BLANK, move=Stay())
+        transition.add(right_state, final_state, delta)
+
+        return final_state
+
 
 class CompareUnequal(OperationPlan):
     def __init__(self, **kwargs):
@@ -207,6 +344,55 @@ class CompareUnequal(OperationPlan):
     def __str__(self):
         return "CompareUnequal on " + super().__str__()
 
+    def __call__(self, transition: TuringDelta, initial: State):
+        prefix = initial.prefix
+
+        tape_a = self.source_tape
+        tape_b = self.target_tape
+
+        left_state = transition.get_new_state(prefix=prefix,
+                                              description="moving left while comparing (unequality) " +
+                                                          C(tape_a) + " != " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A(Tape.BLANK, move=Left())
+        delta[C(tape_b)] = A(Tape.BLANK, move=Left())
+        transition.add(initial, left_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Left())
+        delta[C(tape_b)] = A("Z", move=Left())
+        transition.add(left_state, left_state, delta)
+
+        right_state = transition.get_new_state(prefix=prefix, description="hit X after comparing (unequality) " +
+                                                                          C(tape_a) + " != " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("X", move=Right())
+        delta[C(tape_b)] = A("Z", move=Right())
+        transition.add(left_state, right_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Right())
+        delta[C(tape_b)] = A("X", move=Right())
+        transition.add(left_state, right_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Right())
+        delta[C(tape_b)] = A("Z", move=Right())
+        transition.add(right_state, right_state, delta)
+
+        final_state = transition.get_new_state(prefix=prefix,
+                                               description="moving right (rewind) after comparing (unequality) " +
+                                                           C(tape_a) + " != " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape_b)] = A(Tape.BLANK, move=Stay())
+        transition.add(right_state, final_state, delta)
+
+        return final_state
+
 
 class CompareEqual(OperationPlan):
     def __init__(self, **kwargs):
@@ -214,6 +400,49 @@ class CompareEqual(OperationPlan):
 
     def __str__(self):
         return "CompareEqual on " + super().__str__()
+
+    def __call__(self, transition: TuringDelta, initial: State):
+        prefix = initial.prefix
+
+        tape_a = self.source_tape
+        tape_b = self.target_tape
+
+        left_state = transition.get_new_state(prefix=prefix, description="moving left while comparing (equality) " +
+                                                                         C(tape_a) + " == " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A(Tape.BLANK, move=Left())
+        delta[C(tape_b)] = A(Tape.BLANK, move=Left())
+        transition.add(initial, left_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Left())
+        delta[C(tape_b)] = A("Z", move=Left())
+        transition.add(left_state, left_state, delta)
+
+        right_state = transition.get_new_state(prefix=prefix, description="hit X after comparing (equality) " +
+                                                                          C(tape_a) + " == " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("X", move=Right())
+        delta[C(tape_b)] = A("X", move=Right())
+        transition.add(left_state, right_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A("Z", move=Right())
+        delta[C(tape_b)] = A("Z", move=Right())
+        transition.add(right_state, right_state, delta)
+
+        final_state = transition.get_new_state(prefix=prefix,
+                                               description="moving right (rewind) after comparing (equality) " +
+                                                           C(tape_a) + " == " + C(tape_b))
+
+        delta = transition.get_blank_delta()
+        delta[C(tape_a)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape_b)] = A(Tape.BLANK, move=Stay())
+        transition.add(right_state, final_state, delta)
+
+        return final_state
 
 
 class PlanTester:
@@ -232,26 +461,33 @@ class PlanTester:
 
         buffer = Input(initial=self.initial, tapes=self.tapes - 1)
 
-        for each in tapes:
-            tape = int(each[1:])
-            buffer.tapes[each].buffer = [c for c in tapes[each]] + [Tape.BLANK]
+        if isinstance(self.plan, BlockPlan):
+            for each in tapes:
+                tape = int(each[1:])
+                buffer.tapes[each].buffer = [c for c in tapes[each]] + [Tape.BLANK]
 
-            if tape > 0:
+                if tape > 0:
+                    buffer.tapes[each].pointers = [len(tapes[each])]
+
+                self.plan(transition, self.initial, {final: Tape.BLANK}, **kwargs)
+
+        elif isinstance(self.plan, OperationPlan):
+            for each in tapes:
+                buffer.tapes[each].buffer = [c for c in tapes[each]] + [Tape.BLANK]
                 buffer.tapes[each].pointers = [len(tapes[each])]
 
-        if isinstance(self.plan, BlockPlan):
-            self.plan(transition, self.initial, {final: Tape.BLANK}, **kwargs)
+            final = self.plan(transition, self.initial, **kwargs)
 
-            turing = TuringMachine(initial=self.initial, final={final}, transition=transition)
+        turing = TuringMachine(initial=self.initial, final={final}, transition=transition)
 
-            turing.debug_input(buffer)
+        turing.debug_input(buffer)
 
-            buffer = turing(buffer)
+        buffer = turing(buffer)
 
-            if checker:
-                return checker(buffer)
+        if checker:
+            return checker(buffer)
 
-            return buffer.state() == final and turing.is_done(buffer)
+        return buffer.state() == final and turing.is_done(buffer)
 
 
 class TuringPlanner:

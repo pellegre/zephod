@@ -94,26 +94,7 @@ class MachineBuilder:
                 next_state = self.parsed_state
 
             elif isinstance(plan, OperationPlan):
-                source_tape = plan.source_tape
-                target_tape = plan.target_tape
-
-                if isinstance(plan, Accumulate):
-                    next_state = self._add_tapes(next_state, source_tape, target_tape)
-
-                elif isinstance(plan, CompareGreater):
-                    next_state = self._verify_greater_counters(next_state, source_tape, target_tape)
-
-                elif isinstance(plan, CompareStrictGreater):
-                    next_state = self._verify_strict_greater_counters(next_state, source_tape, target_tape)
-
-                elif isinstance(plan, CompareUnequal):
-                    next_state = self._verify_unequal_counters(next_state, source_tape, target_tape)
-
-                elif isinstance(plan, CompareEqual):
-                    next_state = self._verify_equal_counters(next_state, source_tape, target_tape)
-
-                else:
-                    raise RuntimeError("unhandled plan " + str(plan))
+                next_state = plan(self.transition, next_state)
 
             else:
                 raise RuntimeError("unhandled plan " + str(plan))
