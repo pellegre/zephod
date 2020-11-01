@@ -331,10 +331,11 @@ def test_language_turing_machine_1():
 
     cfl.info()
 
+    lang_machine = TuringParser(language=cfl)
+    lang_machine.info()
+
     for data in cfl.enumerate_strings(length=25):
         print("[+] testing string", data)
-        lang_machine = TuringParser(language=cfl)
-        lang_machine.info()
 
         read_status = lang_machine.turing.read(data)
 
@@ -383,6 +384,7 @@ def test_language_turing_machine_3():
     difference = set(cfl_with_ones.enumerate_strings(length=25)).difference(cfl.enumerate_strings(length=25))
 
     lang_machine = TuringParser(language=cfl)
+    lang_machine.info()
 
     for data in cfl.enumerate_strings(length=25):
         print("[+] testing string", data)
@@ -397,7 +399,6 @@ def test_language_turing_machine_3():
 
     for data in difference:
         print("[+] testing string from ones language", data)
-        lang_machine.info()
 
         read_status = lang_machine.turing.read(data)
 
@@ -421,10 +422,10 @@ def test_language_turing_machine_4():
     difference = set(cfl_with_null.enumerate_strings(length=25)).difference(cfl.enumerate_strings(length=25))
 
     lang_machine = TuringParser(language=cfl)
+    lang_machine.info()
 
     for data in cfl.enumerate_strings(length=25):
         print("[+] testing string", data)
-        lang_machine.info()
 
         read_status = lang_machine.turing.read(data)
 
@@ -435,8 +436,6 @@ def test_language_turing_machine_4():
 
     for data in difference:
         print("[+] testing string from nulled language", data)
-        lang_machine.info()
-
         read_status = lang_machine.turing.read(data)
 
         if read_status:
@@ -806,6 +805,37 @@ def test_language_union_turing_machine_14():
     #     assert read_status
 
 
+def test_planner_turing_machine_15():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    print("[+] parse lone symbol")
+
+    tester = PlanTester(plan=ParseLoneSymbol(block=0),
+                        language=LanguageFormula(expression=[ccc], conditions=[]))
+
+    assert tester.test({C(0): "ccc"}, word="ccc")
+    assert not tester.test({C(0): "cdc"}, word="ccc")
+
+    print("[+] parse accumulate test")
+
+    tester = PlanTester(plan=ParseAccumulate(block=0, tape=1),
+                        language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
+
+    assert tester.test({C(0): "aaaaaaa"}, word="a", checker=lambda i: i.tapes[C(1)].data() == "ZZZZZZZB0")
+
+    assert not tester.test({C(0): "aaaabaaa"}, word="a")
+
+    print("[+] parse equal test")
+
+    tester = PlanTester(plan=ParseEqual(block=0, tape=1),
+                        language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
+
+    assert tester.test({C(0): "aaa", C(1): "XZZZ"}, word="a")
+    assert tester.test({C(0): "ababab", C(1): "XZZZ"}, word="ab")
+    assert not tester.test({C(0): "ababab", C(1): "XZZ"}, word="ab")
+
+
 def testing_turing_language():
     test_language_turing_machine_1()
     test_language_turing_machine_2()
@@ -838,7 +868,10 @@ def testing_turing_language():
 
 def main():
     print("[+] FD ")
-    testing_turing_language()
+
+    # testing_turing_language()
+
+    test_planner_turing_machine_15()
 
 
 main()

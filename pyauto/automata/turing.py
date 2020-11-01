@@ -91,6 +91,9 @@ class TuringDelta(Delta):
 
         return new_state
 
+    def get_blank_delta(self):
+        return {C(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, self.tapes)}
+
     def merge_transition(self, transition):
         if transition.source in self.transitions:
             if any([transition == t for t in self.transitions[transition.source]]):
@@ -199,9 +202,7 @@ class TuringMachine(Automata):
         buffer = self(Input(data=string, initial=self.initial, tapes=self.transition.tapes - 1))
         return buffer.state() in self.final and self.is_done(buffer)
 
-    def debug(self, string):
-        buffer = Input(data=string, initial=self.initial, tapes=self.transition.tapes - 1)
-
+    def debug_input(self, buffer):
         columns = shutil.get_terminal_size((80, 20)).columns
 
         size = len(str(buffer).split('\n')[0])
@@ -223,3 +224,8 @@ class TuringMachine(Automata):
         print()
 
         return buffer
+
+    def debug(self, string):
+        buffer = Input(data=string, initial=self.initial, tapes=self.transition.tapes - 1)
+        return self.debug_input(buffer)
+

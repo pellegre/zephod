@@ -7,6 +7,7 @@ from pyauto.grammar import *
 
 from utils.plotter import *
 
+
 # --------------------------------------------------------------------
 #
 # automata based rules for languages
@@ -98,8 +99,8 @@ class ParityRule(Constraint):
             self.read_any = "got_odd_" + self.pattern + "_0"
 
         states = {i + 1: "read_even_" + s + "_" + str(i + 1) for i, s in enumerate(self.pattern)}
-        states.update({i + 1 + len(self.pattern):
-                           "read_odd_" + s + "_" + str(i + 1) for i, s in enumerate(self.pattern)})
+        states.update({i + 1 + len(self.pattern): "read_odd_" + s + "_" + str(i + 1)
+                       for i, s in enumerate(self.pattern)})
 
         states[0] = self.read_even
         states[len(self.pattern)] = self.read_odd
@@ -528,7 +529,7 @@ class LanguageFormula(Language):
     @staticmethod
     def _push_expression(expression, base, exponent):
         if isinstance(exponent, Symbol):
-            expression.append(base**exponent)
+            expression.append(base ** exponent)
 
         elif isinstance(exponent, Mul):
             assert len(exponent.free_symbols) == 1
@@ -615,6 +616,7 @@ class LanguageUnion(Language):
             return LanguageUnion(languages=self.languages + [other])
         else:
             return LanguageUnion(languages=self.languages + other.languages)
+
 
 # --------------------------------------------------------------------
 #
@@ -709,4 +711,3 @@ class ContextFreeLanguage:
         grammar = OpenGrammar()
         relations = list(self.relations.items())
         return grammar
-

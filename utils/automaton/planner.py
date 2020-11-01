@@ -37,6 +37,27 @@ class ParseLoneSymbol(BlockPlan):
     def __str__(self):
         return "ParseLoneSymbol on " + super().__str__()
 
+    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
+        prefix = initial.prefix
+        current_state = initial
+
+        for i in range(0, len(word)):
+            next_state = transition.get_new_state(prefix=prefix, description="parsing letter " + word[i] +
+                                                                             " of lone word " + word)
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(word[i], move=Right())
+            transition.add(current_state, next_state, delta)
+
+            current_state = next_state
+
+        for each in final:
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(final[each], move=Stay())
+            transition.add(current_state, each, delta)
+
+        return current_state
+
 
 class ParseAccumulate(BlockPlan):
     def __init__(self, tape, **kwargs):
@@ -46,6 +67,35 @@ class ParseAccumulate(BlockPlan):
     def __str__(self):
         return "ParseAccumulate on " + super().__str__() + " in tape " + str(self.tape)
 
+    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
+        prefix = initial.prefix
+        current_state = initial
+
+        for i in range(0, len(word)):
+            delta = transition.get_blank_delta()
+
+            if i == len(word) - 1:
+                next_state = initial
+                delta[C(self.tape)] = A(Tape.BLANK, new="Z", move=Right())
+
+            else:
+                next_state = transition.get_new_state(prefix=prefix,
+                                                      description="parsing letter " + word[i] + " of word " +
+                                                                  word + " while counting " + str(self.tape) +
+                                                                  " first time")
+
+            delta[C(0)] = A(word[i], move=Right())
+            transition.add(current_state, next_state, delta)
+
+            current_state = next_state
+
+        for each in final:
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(final[each], move=Stay())
+            transition.add(current_state, each, delta)
+
+        return current_state
+
 
 class ParseEqual(BlockPlan):
     def __init__(self, tape, **kwargs):
@@ -54,6 +104,57 @@ class ParseEqual(BlockPlan):
 
     def __str__(self):
         return "ParseEqual on " + super().__str__() + " in tape " + str(self.tape)
+
+    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
+        prefix = initial.prefix
+        rewind_state = transition.get_new_state(prefix=prefix,
+                                                description="rewind " + C(self.tape) + " after parsing block " + word)
+
+        for each in final:
+            next_symbol = final[each]
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A("X", move=Right())
+            transition.add(initial, rewind_state, delta)
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A("Z", move=Right())
+            transition.add(rewind_state, rewind_state, delta)
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A(Tape.BLANK, move=Stay())
+            transition.add(rewind_state, each, delta)
+
+        current_state = initial
+
+        delta = transition.get_blank_delta()
+        delta[C(0)] = A(word[0], move=Stay())
+        delta[C(self.tape)] = A(Tape.BLANK, move=Left())
+        transition.add(current_state, current_state, delta)
+
+        for i in range(0, len(word)):
+            delta = transition.get_blank_delta()
+
+            if i == len(word) - 1:
+                next_state = initial
+                delta[C(self.tape)] = A("Z", move=Left())
+
+            else:
+                delta[C(self.tape)] = A("Z", move=Stay())
+                next_state = transition.get_new_state(prefix=prefix,
+                                                      description="parsed letter " + word[i] +
+                                                                  " of word " + word +
+                                                                  " while verifying counter in C" + str(self.tape))
+
+            delta[C(0)] = A(word[i], move=Right())
+            transition.add(current_state, next_state, delta)
+
+            current_state = next_state
+
+        return current_state
 
 
 class OperationPlan(MachinePlan):
@@ -113,6 +214,44 @@ class CompareEqual(OperationPlan):
 
     def __str__(self):
         return "CompareEqual on " + super().__str__()
+
+
+class PlanTester:
+    def __init__(self, plan, language, tapes=2):
+        self.plan = plan
+        self.language = language
+
+        self.tapes = tapes
+
+        self.initial = State("t0")
+
+    def test(self, tapes, checker=None, **kwargs):
+        transition = TuringDelta(tapes=self.tapes)
+
+        final = transition.get_new_state(prefix=self.initial.prefix, description="final")
+
+        buffer = Input(initial=self.initial, tapes=self.tapes - 1)
+
+        for each in tapes:
+            tape = int(each[1:])
+            buffer.tapes[each].buffer = [c for c in tapes[each]] + [Tape.BLANK]
+
+            if tape > 0:
+                buffer.tapes[each].pointers = [len(tapes[each])]
+
+        if isinstance(self.plan, BlockPlan):
+            self.plan(transition, self.initial, {final: Tape.BLANK}, **kwargs)
+
+            turing = TuringMachine(initial=self.initial, final={final}, transition=transition)
+
+            turing.debug_input(buffer)
+
+            buffer = turing(buffer)
+
+            if checker:
+                return checker(buffer)
+
+            return buffer.state() == final and turing.is_done(buffer)
 
 
 class TuringPlanner:
@@ -212,6 +351,7 @@ class TuringPlanner:
 
         else:
             return [TuringPlanner.END_BLOCK]
+
 
 # --------------------------------------------------------------------
 #
@@ -320,4 +460,3 @@ class AutomaticPlanner(TuringPlanner):
                     target_tape = self.symbol_tape[c.rhs]
 
                     self.machine_plan.append(CompareUnequal(target_tape=target_tape, source_tape=source_tape))
-

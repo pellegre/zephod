@@ -84,19 +84,12 @@ class MachineBuilder:
                 current_block = plan.block
                 state = self.state_from_block[current_block]
 
-                final_states = [self.state_from_block[block] for block in self.planner.exit_blocks[current_block]]
+                final_states = {self.state_from_block[block]: self._get_symbol_for_block(block)
+                                for block in self.planner.exit_blocks[current_block]}
 
-                if isinstance(plan, ParseLoneSymbol):
-                    self._parse_lone_symbol(state, final_states)
+                word = self._get_word_for_block(current_block)
 
-                elif isinstance(plan, ParseAccumulate):
-                    self._parse_block_and_accumulate(plan.tape, state, final_states)
-
-                elif isinstance(plan, ParseEqual):
-                    self._parse_block_exact_equal(plan.tape, state, final_states)
-
-                else:
-                    raise RuntimeError("unhandled plan " + str(plan))
+                plan(self.transition, state, final_states, word)
 
                 next_state = self.parsed_state
 
@@ -105,7 +98,7 @@ class MachineBuilder:
                 target_tape = plan.target_tape
 
                 if isinstance(plan, Accumulate):
-                    next_state = self._accumulate_counters(next_state, source_tape, target_tape)
+                    next_state = self._add_tapes(next_state, source_tape, target_tape)
 
                 elif isinstance(plan, CompareGreater):
                     next_state = self._verify_greater_counters(next_state, source_tape, target_tape)
@@ -127,7 +120,7 @@ class MachineBuilder:
 
         return next_state
 
-    def _accumulate_counters(self, initial_state, tape, result_tape):
+    def _add_tapes(self, initial_state, tape, result_tape):
         next_state = initial_state
 
         left_state = self._get_new_state(description="moving left while accumulating C" +
@@ -319,116 +312,6 @@ class MachineBuilder:
 
         return final_state
 
-    def _parse_block_exact_equal(self, counter_tape, initial_state, final_states):
-        block = self.block_from_state[initial_state]
-        word = self._get_word_for_block(block)
-
-        rewind_state = self._get_new_state(description="rewind " + C(counter_tape) + " after parsing block " +
-                                                       str(block) + " (" + str(self.language.expression[block]) + ")")
-
-        for each in final_states:
-            next_symbol = self._get_symbol_for_state(each)
-
-            delta = self._get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(counter_tape)] = A("X", move=Right())
-            self.transition.add(initial_state, rewind_state, delta)
-
-            delta = self._get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(counter_tape)] = A("Z", move=Right())
-            self.transition.add(rewind_state, rewind_state, delta)
-
-            delta = self._get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(counter_tape)] = A(Tape.BLANK, move=Stay())
-            self.transition.add(rewind_state, each, delta)
-
-        current_state = initial_state
-
-        delta = self._get_blank_delta()
-        delta[C(0)] = A(word[0], move=Stay())
-        delta[C(counter_tape)] = A(Tape.BLANK, move=Left())
-        self.transition.add(current_state, current_state, delta)
-
-        for i in range(0, len(word)):
-            delta = self._get_blank_delta()
-
-            if i == len(word) - 1:
-                next_state = initial_state
-                delta[C(counter_tape)] = A("Z", move=Left())
-
-            else:
-                delta[C(counter_tape)] = A("Z", move=Stay())
-                next_state = self._get_new_state(description="parsed letter " + word[i] +
-                                                             " of word " + word + " in block " + str(block) +
-                                                             " while verifying counter in C" + str(counter_tape))
-
-            delta[C(0)] = A(word[i], move=Right())
-            self.transition.add(current_state, next_state, delta)
-
-            current_state = next_state
-
-    def _parse_block_and_accumulate(self, counter_tape, initial_state, final_states):
-        block = self.block_from_state[initial_state]
-        word = self._get_word_for_block(block)
-
-        expr = self.language.expression[block]
-
-        assert isinstance(expr, Pow)
-        assert len(expr.exp.free_symbols) == 1
-
-        current_state = initial_state
-
-        for i in range(0, len(word)):
-            delta = self._get_blank_delta()
-
-            if i == len(word) - 1:
-                next_state = initial_state
-                delta[C(counter_tape)] = A(Tape.BLANK, new="Z", move=Right())
-
-            else:
-                next_state = self._get_new_state(description="parsing letter " + word[i] +
-                                                             " of word " + word + " in block " + str(block) +
-                                                             " while counting " + str(counter_tape) + " first time")
-
-            delta[C(0)] = A(word[i], move=Right())
-            self.transition.add(current_state, next_state, delta)
-
-            current_state = next_state
-
-        for each in final_states:
-            next_symbol = self._get_symbol_for_state(each)
-
-            delta = self._get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-
-            if any([m[expr.exp] == 0 for m in self.minimal]):
-                self.transition.add(initial_state, each, delta)
-            else:
-                self.transition.add(current_state, each, delta)
-
-    def _parse_lone_symbol(self, initial_state, final_states):
-        current_state = initial_state
-
-        block = self.block_from_state[initial_state]
-        word = self._get_word_for_block(block)
-
-        for i in range(0, len(word)):
-            next_state = self._get_new_state(description="parsing letter " + word[i] +
-                                                         " of lone word " + word)
-
-            delta = self._get_blank_delta()
-            delta[C(0)] = A(word[i], move=Right())
-            self.transition.add(current_state, next_state, delta)
-
-            current_state = next_state
-
-        for each in final_states:
-            delta = self._get_blank_delta()
-            delta[C(0)] = A(self._get_symbol_for_state(each), move=Stay())
-            self.transition.add(current_state, each, delta)
-
     def _get_symbol_for_state(self, state):
         if state == self.parsed_state:
             return Tape.BLANK
@@ -456,7 +339,7 @@ class MachineBuilder:
             return str(expr)
 
     def _get_symbol_for_block(self, block):
-        if block == len(self.language.expression):
+        if block == TuringPlanner.END_BLOCK:
             return Tape.BLANK
 
         word = self._get_word_for_block(block)
