@@ -493,17 +493,24 @@ class PlanTester:
 class TuringPlanner:
     END_BLOCK = -1
 
-    def __init__(self, language: LanguageFormula):
+    def __init__(self, language: LanguageFormula, tapes=None):
         self.language = language
 
         self.symbol_tape = dict()
-        self.tapes = list()
+
+        if tapes:
+            self.tapes = [i for i in range(1, tapes + 1)]
+        else:
+            self.tapes = list()
 
         self.machine_plan = list()
         self.exit_blocks = dict()
 
         for i in range(0, len(self.language.expression)):
             self.exit_blocks[i] = self._get_exit_blocks(i)
+
+    def add_plan(self, plan):
+        self.machine_plan.append(plan)
 
     def info(self):
         print("\n[+] language")
