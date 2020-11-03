@@ -760,7 +760,7 @@ def test_planner_turing_machine_15():
     assert tester.test({C(0): "ababab", C(1): "XZZZ"}, word="ab")
     assert not tester.test({C(0): "ababab", C(1): "XZZ"}, word="ab")
 
-    tester = PlanTester(plan=Accumulate(source_tape=0, target_tape=1),
+    tester = PlanTester(plan=Addition(source_tape=0, target_tape=1),
                         language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
 
     assert tester.test({C(0): "XZZZ", C(1): "XZZZ"}, checker=lambda i: i.tapes[C(1)].data() == "XZZZZZZB0")
@@ -1531,8 +1531,8 @@ def turing_case_1():
 
     planner.add_plan(ParseLoneSymbol(block=3))
 
-    planner.add_plan(ParseEqualLeft(block=4, tape=1))
-    planner.add_plan(ParseEqualRight(block=5, tape=1))
+    planner.add_plan(ParseEqual(block=4, tape=1))
+    planner.add_plan(ParseEqual(block=5, tape=1))
 
     planner.add_plan(ParseStrictLessEqual(block=6, tape=2))
 
@@ -1581,39 +1581,39 @@ def main():
 
     # tree.plot()
 
-    testing_turing_language()
-    
+    # testing_turing_language()
+
     x, y, i1, i0 = symbols("x y 1 0")
     m, k, n = symbols("m k n")
 
     cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
                           conditions=[n >= 0, m >= 0])
 
-    planner = TuringPlanner(language=cfl, tapes=2)
+    planner = TuringPlanner(language=cfl, tapes=4)
 
-    planner.add_plan(ParseAccumulate(block=0, tape=1))
+    planner.machine_plan = [
+        ParseAction(block=0, actions=[Copy(tapes=[1, 2]), Addition(tapes=[3])]),
 
-    planner.add_plan(ParseLoneSymbol(block=1))
+        ParseLoneSymbol(block=1),
 
-    planner.add_plan(ParseAccumulate(block=2, tape=2))
+        ParseAction(block=2, actions=[Copy(tapes=[4]), Subtract(tapes=[3]), AllowNegative(tapes=[3])]),
+
+        AddTapes(source_tape=1, target_tape=4, symbol="1"),
+
+        SubtractTapes(source_tape=1, target_tape=4, symbol="1"),
+        SubtractTapes(source_tape=1, target_tape=4, symbol="1"),
+        SubtractTapes(source_tape=1, target_tape=4, symbol="1"),
+        SubtractTapes(source_tape=1, target_tape=4, symbol="1", allow_negative=True),
+        AddWithFactorTapes(source_tape=1, target_tape=4, symbol="1", multiplier=3),
+        AddWithFactorTapes(source_tape=1, target_tape=4, symbol="1", multiplier=-2),
+        AddWithFactorTapes(source_tape=1, target_tape=4, symbol="1", multiplier=-2, allow_negative=True)
+    ]
 
     machine = MachineBuilder(planner=planner)
 
-    assert machine.turing.debug("111101111")
+    assert machine.turing.debug("11101111111")
 
-    # for data in cfl.enumerate_strings(length=22):
-    #     print("[+] testing string", data)
-    #     read_status = machine.turing.read(data)
-    #
-    #     if not read_status:
-    #         machine.turing.debug(data)
-    #         machine.info()
-    #
-    #     assert read_status
-    #
     # machine.info()
-
-    # TuringPlotter.to_csv("machine.csv", machine.turing)
 
 
 main()

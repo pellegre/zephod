@@ -30,6 +30,188 @@ class BlockPlan(MachinePlan):
         return self.__str__()
 
 
+# --------------------------------------------------------------------
+#
+# parsing
+#
+# --------------------------------------------------------------------
+
+
+class DeltaAction:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def initial(delta):
+        return list()
+
+    def __call__(self, deltas):
+        return deltas
+
+    @staticmethod
+    def final(delta):
+        return list()
+
+
+class Copy(DeltaAction):
+    def __init__(self, tapes):
+        self.tapes = tapes
+
+    def __call__(self, delta):
+        symbol = delta[C(0)].new
+
+        if not symbol:
+            symbol = delta[C(0)].symbol
+
+        for tape in self.tapes:
+            delta[C(tape)] = A(Tape.BLANK, new=symbol, move=Right())
+
+
+class Addition(DeltaAction):
+    def __init__(self, tapes, symbol="Z"):
+        self.tapes = tapes
+        self.symbol = symbol
+
+    def __call__(self, delta):
+        for tape in self.tapes:
+            delta[C(tape)] = A(Tape.BLANK, new=self.symbol, move=Right())
+
+
+class Subtract(DeltaAction):
+    def __init__(self, tapes, symbol="Z"):
+        self.tapes = tapes
+        self.symbol = symbol
+
+    def initial(self, delta):
+        for tape in self.tapes:
+            delta[C(tape)] = A(Tape.BLANK, move=Left())
+
+        return True
+
+    def __call__(self, delta):
+        for tape in self.tapes:
+            delta[C(tape)] = A(self.symbol, new=Tape.BLANK, move=Left())
+
+    def final(self, delta):
+        for tape in self.tapes:
+            delta[C(tape)] = A(self.symbol, move=Right())
+
+        return True
+
+
+class AllowNegative(DeltaAction):
+    def __init__(self, tapes, symbol="X"):
+        self.tapes = tapes
+        self.symbol = symbol
+
+    def __call__(self, delta):
+        for tape in self.tapes:
+            delta[C(tape)] = A(self.symbol, move=Stay())
+
+    def final(self, delta):
+        for tape in self.tapes:
+            delta[C(tape)] = A(self.symbol, move=Right())
+
+
+class ParseAction(BlockPlan):
+    def __init__(self, actions, **kwargs):
+        super().__init__(**kwargs)
+        self.actions = actions
+
+    def __str__(self):
+        return "ParseAccumulate on " + super().__str__() + " while doing actions " + str(self.actions)
+
+    def _apply_actions(self, delta, run=lambda action, delta: action(delta)):
+        deltas = list()
+
+        for action in self.actions:
+            empty_delta = {C(0): delta[C(0)]}
+            run(action, empty_delta)
+
+            deltas.append(empty_delta)
+
+        merged = [{C(0): delta[C(0)]}]
+
+        for result in deltas:
+            for merged_delta in list(merged):
+                for tape in filter(lambda t: t != C(0), result):
+                    if tape not in merged_delta:
+                        merged_delta[tape] = result[tape]
+
+                    else:
+                        split = copy.deepcopy(merged_delta)
+                        split[tape] = result[tape]
+                        merged.append(split)
+
+        for each in merged:
+            for tape in delta:
+                if tape not in each:
+                    each[tape] = delta[tape]
+
+        return merged
+
+    @staticmethod
+    def _is_null_tape(tape, delta):
+        return delta[tape].symbol == Tape.BLANK and not delta[tape].new and isinstance(delta[tape].move, Stay)
+
+    @staticmethod
+    def _is_null_action(delta):
+        return all([ParseAction._is_null_tape(tape, delta) for tape in delta if tape != C(0)])
+
+    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
+        prefix = initial.prefix
+        current_state = initial
+
+        delta = transition.get_blank_delta()
+        delta[C(0)] = A(word[0], move=Stay())
+
+        merged = self._apply_actions(delta, run=lambda a, d: a.initial(d))
+
+        for merged_delta in merged:
+            if not self._is_null_action(merged_delta):
+                transition.add(current_state, current_state, merged_delta)
+
+        for i in range(0, len(word)):
+            delta = transition.get_blank_delta()
+
+            delta[C(0)] = A(word[i], move=Right())
+
+            if i == len(word) - 1:
+                next_state = initial
+
+                delta = transition.get_blank_delta()
+                delta[C(0)] = A(word[i], move=Right())
+
+                merged = self._apply_actions(delta)
+
+                for merged_delta in merged:
+                    transition.add(current_state, next_state, merged_delta)
+
+            else:
+                next_state = transition.get_new_state(prefix=prefix,
+                                                      description="parsing letter " + word[i] + " of word " +
+                                                                  word + " while doing " + str(self.actions) +
+                                                                  " first time")
+
+                delta = transition.get_blank_delta()
+                delta[C(0)] = A(word[i], move=Right())
+
+                transition.add(current_state, next_state, delta)
+
+            current_state = next_state
+
+        for each in final:
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(final[each], move=Stay())
+
+            merged = self._apply_actions(delta, run=lambda a, d: a.final(d))
+
+            for merged_delta in merged:
+                transition.add(current_state, each, merged_delta)
+
+        return current_state
+
+
 class ParseLoneSymbol(BlockPlan):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -141,102 +323,6 @@ class ParseEqual(BlockPlan):
             if i == len(word) - 1:
                 next_state = initial
                 delta[C(self.tape)] = A("Z", move=Left())
-
-            else:
-                delta[C(self.tape)] = A("Z", move=Stay())
-                next_state = transition.get_new_state(prefix=prefix,
-                                                      description="parsed letter " + word[i] +
-                                                                  " of word " + word +
-                                                                  " while verifying counter in C" + str(self.tape))
-
-            delta[C(0)] = A(word[i], move=Right())
-            transition.add(current_state, next_state, delta)
-
-            current_state = next_state
-
-        return current_state
-
-
-class ParseEqualLeft(BlockPlan):
-    def __init__(self, tape, **kwargs):
-        super().__init__(**kwargs)
-        self.tape = tape
-
-    def __str__(self):
-        return "ParseEqual on " + super().__str__() + " in tape " + str(self.tape)
-
-    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
-        prefix = initial.prefix
-
-        for each in final:
-            next_symbol = final[each]
-
-            delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A("X", move=Stay())
-            transition.add(initial, each, delta)
-
-        current_state = initial
-
-        delta = transition.get_blank_delta()
-        delta[C(0)] = A(word[0], move=Stay())
-        delta[C(self.tape)] = A(Tape.BLANK, move=Left())
-        transition.add(current_state, current_state, delta)
-
-        for i in range(0, len(word)):
-            delta = transition.get_blank_delta()
-
-            if i == len(word) - 1:
-                next_state = initial
-                delta[C(self.tape)] = A("Z", move=Left())
-
-            else:
-                delta[C(self.tape)] = A("Z", move=Stay())
-                next_state = transition.get_new_state(prefix=prefix,
-                                                      description="parsed letter " + word[i] +
-                                                                  " of word " + word +
-                                                                  " while verifying counter in C" + str(self.tape))
-
-            delta[C(0)] = A(word[i], move=Right())
-            transition.add(current_state, next_state, delta)
-
-            current_state = next_state
-
-        return current_state
-
-
-class ParseEqualRight(BlockPlan):
-    def __init__(self, tape, **kwargs):
-        super().__init__(**kwargs)
-        self.tape = tape
-
-    def __str__(self):
-        return "ParseEqual on " + super().__str__() + " in tape " + str(self.tape)
-
-    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
-        prefix = initial.prefix
-
-        for each in final:
-            next_symbol = final[each]
-
-            delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A(Tape.BLANK, move=Stay())
-            transition.add(initial, each, delta)
-
-        current_state = initial
-
-        delta = transition.get_blank_delta()
-        delta[C(0)] = A(word[0], move=Stay())
-        delta[C(self.tape)] = A("X", move=Right())
-        transition.add(current_state, current_state, delta)
-
-        for i in range(0, len(word)):
-            delta = transition.get_blank_delta()
-
-            if i == len(word) - 1:
-                next_state = initial
-                delta[C(self.tape)] = A("Z", move=Right())
 
             else:
                 delta[C(self.tape)] = A("Z", move=Stay())
@@ -378,9 +464,17 @@ class ParseLessEqual(BlockPlan):
         return current_state
 
 
+# --------------------------------------------------------------------
+#
+# tape operations
+#
+# --------------------------------------------------------------------
+
+
 class OperationPlan(MachinePlan):
-    def __init__(self, source_tape, target_tape):
+    def __init__(self, source_tape, target_tape, symbol="Z"):
         self.source_tape, self.target_tape = source_tape, target_tape
+        self.symbol = symbol
 
     def __str__(self):
         return "tape " + str(self.source_tape) + " and " + str(self.target_tape)
@@ -397,7 +491,7 @@ class RewindAll(MachinePlan):
         return "Rewind all tapes"
 
 
-class Accumulate(OperationPlan):
+class AddTapes(OperationPlan):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -420,8 +514,8 @@ class Accumulate(OperationPlan):
         transition.add(next_state, left_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, new="Z", move=Right())
-        delta[C(tape)] = A("Z", move=Left())
+        delta[C(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
+        delta[C(tape)] = A(self.symbol, move=Left())
         transition.add(left_state, left_state, delta)
 
         right_state = transition.get_new_state(prefix=prefix, description="hit X while accumulating C" +
@@ -434,7 +528,7 @@ class Accumulate(OperationPlan):
 
         delta = transition.get_blank_delta()
         delta[C(result)] = A(Tape.BLANK, move=Stay())
-        delta[C(tape)] = A("Z", move=Right())
+        delta[C(tape)] = A(self.symbol, move=Right())
         transition.add(right_state, right_state, delta)
 
         next_state = transition.get_new_state(prefix=prefix, description="rewind " + C(tape) + " after accumulating")
@@ -447,7 +541,242 @@ class Accumulate(OperationPlan):
         return next_state
 
 
-class CompareGreater(OperationPlan):
+class SubtractTapes(OperationPlan):
+    def __init__(self, allow_negative=False, **kwargs):
+        super().__init__(**kwargs)
+        self.allow_negative = allow_negative
+
+    def __str__(self):
+        return "Accumulate on " + super().__str__()
+
+    def __call__(self, transition: TuringDelta, initial: State):
+        result = self.target_tape
+        tape = self.source_tape
+
+        next_state = initial
+        prefix = initial.prefix
+
+        left_state = transition.get_new_state(prefix=prefix, description="moving left while subtracting C" +
+                                                                         str(tape) + " on " + C(result))
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(Tape.BLANK, move=Left())
+        delta[C(tape)] = A(Tape.BLANK, move=Left())
+        transition.add(next_state, left_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(self.symbol, new=Tape.BLANK, move=Left())
+        delta[C(tape)] = A(self.symbol, move=Left())
+        transition.add(left_state, left_state, delta)
+
+        if self.allow_negative:
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A("X", move=Stay())
+            delta[C(tape)] = A(self.symbol, move=Left())
+            transition.add(left_state, left_state, delta)
+
+        right_state = transition.get_new_state(prefix=prefix, description="hit X while subtracting C" +
+                                                                          str(tape) + " on " + C(result))
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(self.symbol, move=Right())
+        delta[C(tape)] = A("X", move=Right())
+        transition.add(left_state, right_state, delta)
+
+        if self.allow_negative:
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A("X", move=Right())
+            delta[C(tape)] = A("X", move=Right())
+            transition.add(left_state, right_state, delta)
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A(self.symbol, move=Right())
+        transition.add(right_state, right_state, delta)
+
+        next_state = transition.get_new_state(prefix=prefix, description="rewind " + C(tape) + " after subtracting")
+
+        delta = transition.get_blank_delta()
+        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[C(tape)] = A(Tape.BLANK, move=Stay())
+        transition.add(right_state, next_state, delta)
+
+        return next_state
+
+
+class AddWithFactorTapes(OperationPlan):
+    def __init__(self, multiplier, allow_negative=False, **kwargs):
+        super().__init__(**kwargs)
+        self.multiplier = multiplier
+        self.allow_negative = allow_negative
+
+    def __str__(self):
+        return "Accumulate on " + super().__str__()
+
+    def __call__(self, transition: TuringDelta, initial: State):
+        prefix = initial.prefix
+
+        result = self.target_tape
+        tape = self.source_tape
+
+        state = transition.get_new_state(prefix=prefix, description="initial while adding with factor " +
+                                                                    str(self.multiplier) + "  C" +
+                                                                    str(tape) + " on " + C(result))
+
+        if self.multiplier < 0:
+            movement = A(self.symbol, new=Tape.BLANK, move=Left())
+            movement_stay = A(self.symbol, move=Stay())
+            movement_hit_zero = A("X", move=Stay())
+
+            # ---- get the first one
+
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A(Tape.BLANK, move=Left())
+            delta[C(tape)] = A(Tape.BLANK, move=Left())
+
+            transition.add(initial, state, delta)
+
+        else:
+            movement = A(Tape.BLANK, new=self.symbol, move=Right())
+            movement_stay = A(Tape.BLANK, move=Stay())
+            movement_hit_zero = None
+
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A(Tape.BLANK, move=Stay())
+            delta[C(tape)] = A(Tape.BLANK, move=Left())
+
+            transition.add(initial, state, delta)
+
+        for i in range(abs(self.multiplier)):
+            if i % 2 == 0:
+                # ---- go to left
+                delta = transition.get_blank_delta()
+                delta[C(result)] = movement
+                delta[C(tape)] = A(self.symbol, move=Left())
+
+                transition.add(state, state, delta)
+
+                if movement_hit_zero and self.allow_negative:
+                    delta[C(result)] = movement_hit_zero
+                    transition.add(state, state, delta)
+
+                # ---- hit X
+                delta = transition.get_blank_delta()
+                delta[C(result)] = movement_stay
+                delta[C(tape)] = A("X", move=Right())
+
+                next_state = transition.get_new_state(prefix=prefix, description="hit X while adding with factor " +
+                                                                                 str(self.multiplier) + "  C" +
+                                                                                 str(tape) + " on " + C(result))
+                transition.add(state, next_state, delta)
+
+                if movement_hit_zero and self.allow_negative:
+                    delta[C(result)] = movement_hit_zero
+                    transition.add(state, next_state, delta)
+
+                # swap states
+                state = next_state
+
+            elif i % 2 == 1:
+                # ---- go to right
+                delta = transition.get_blank_delta()
+                delta[C(result)] = movement
+                delta[C(tape)] = A(self.symbol, move=Right())
+
+                transition.add(state, state, delta)
+
+                if movement_hit_zero and self.allow_negative:
+                    delta[C(result)] = movement_hit_zero
+                    transition.add(state, state, delta)
+
+                # ---- hit blank
+                delta = transition.get_blank_delta()
+                delta[C(result)] = movement_stay
+
+                if i == abs(self.multiplier) - 1:
+                    delta[C(tape)] = A(Tape.BLANK, move=Stay())
+                else:
+                    delta[C(tape)] = A(Tape.BLANK, move=Left())
+
+                next_state = transition.get_new_state(prefix=prefix, description="hit B while adding with factor " +
+                                                                                 str(self.multiplier) + "  C" +
+                                                                                 str(tape) + " on " + C(result))
+                transition.add(state, next_state, delta)
+
+                if movement_hit_zero and self.allow_negative:
+                    delta[C(result)] = movement_hit_zero
+                    transition.add(state, next_state, delta)
+
+                # swap states
+                state = next_state
+
+        if abs(self.multiplier) % 2 == 1:
+            mid_state = transition.get_new_state(prefix=prefix, description="rewind (odd) while adding with factor " +
+                                                                            str(self.multiplier) + "  C" +
+                                                                            str(tape) + " on " + C(result))
+
+            if self.multiplier < 0:
+                # ---- hit X, and sync tapes
+
+                delta = transition.get_blank_delta()
+                delta[C(result)] = A(self.symbol, move=Right())
+                delta[C(tape)] = A(self.symbol, move=Stay())
+
+                transition.add(state, state, delta)
+
+                if movement_hit_zero and self.allow_negative:
+                    delta[C(result)] = A("X", move=Right())
+                    transition.add(state, state, delta)
+
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A(Tape.BLANK, move=Stay())
+            delta[C(tape)] = A(self.symbol, move=Right())
+
+            transition.add(state, mid_state, delta)
+
+            # -------- move back to the end
+
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A(Tape.BLANK, move=Stay())
+            delta[C(tape)] = A(self.symbol, move=Right())
+
+            transition.add(mid_state, mid_state, delta)
+
+            # -------- find the blank
+            final_state = transition.get_new_state(prefix=prefix, description="final (odd) while adding with factor " +
+                                                                              str(self.multiplier) + "  C" +
+                                                                              str(tape) + " on " + C(result))
+
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A(Tape.BLANK, move=Stay())
+            delta[C(tape)] = A(Tape.BLANK, move=Stay())
+
+            transition.add(mid_state, final_state, delta)
+
+        else:
+            if self.multiplier < 0:
+                # -------- find the blank
+                final_state = transition.get_new_state(prefix=prefix,
+                                                       description="final (even) while adding with factor " +
+                                                                   str(self.multiplier) + "  C" +
+                                                                   str(tape) + " on " + C(result))
+
+                # ---- hit X, and sync tapes
+
+                delta = transition.get_blank_delta()
+                delta[C(result)] = A(self.symbol, move=Right())
+                delta[C(tape)] = A(Tape.BLANK, move=Stay())
+
+                transition.add(state, final_state, delta)
+
+                if self.allow_negative:
+                    delta[C(result)] = A("X", move=Right())
+                    transition.add(state, final_state, delta)
+
+        return final_state
+
+
+class CompareGreaterTapes(OperationPlan):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -505,7 +834,7 @@ class CompareGreater(OperationPlan):
         return final_state
 
 
-class CompareStrictGreater(OperationPlan):
+class CompareStrictGreaterTapes(OperationPlan):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -558,7 +887,7 @@ class CompareStrictGreater(OperationPlan):
         return final_state
 
 
-class CompareUnequal(OperationPlan):
+class CompareUnequalTapes(OperationPlan):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -615,7 +944,7 @@ class CompareUnequal(OperationPlan):
         return final_state
 
 
-class CompareEqual(OperationPlan):
+class CompareEqualTapes(OperationPlan):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -875,7 +1204,7 @@ class AutomaticPlanner(TuringPlanner):
 
                     for each in rest:
                         source_tape = self.symbol_tape[each]
-                        self.machine_plan.append(Accumulate(target_tape=target_tape, source_tape=source_tape))
+                        self.machine_plan.append(Addition(target_tape=target_tape, source_tape=source_tape))
 
                     self.symbol_tape[c.rhs] = target_tape
 
@@ -885,7 +1214,7 @@ class AutomaticPlanner(TuringPlanner):
 
                     for each in rest:
                         source_tape = self.symbol_tape[each]
-                        self.machine_plan.append(Accumulate(target_tape=target_tape, source_tape=source_tape))
+                        self.machine_plan.append(Addition(target_tape=target_tape, source_tape=source_tape))
 
                     self.symbol_tape[c.lhs] = target_tape
 
@@ -893,34 +1222,36 @@ class AutomaticPlanner(TuringPlanner):
                     source_tape = self.symbol_tape[c.lhs]
                     target_tape = self.symbol_tape[c.rhs]
 
-                    self.machine_plan.append(CompareEqual(target_tape=target_tape, source_tape=source_tape))
+                    self.machine_plan.append(CompareEqualTapes(target_tape=target_tape, source_tape=source_tape))
 
                 elif isinstance(c, StrictGreaterThan):
                     source_tape = self.symbol_tape[c.lhs]
                     target_tape = self.symbol_tape[c.rhs]
 
-                    self.machine_plan.append(CompareStrictGreater(target_tape=target_tape, source_tape=source_tape))
+                    self.machine_plan.append(
+                        CompareStrictGreaterTapes(target_tape=target_tape, source_tape=source_tape))
 
                 elif isinstance(c, GreaterThan):
                     source_tape = self.symbol_tape[c.lhs]
                     target_tape = self.symbol_tape[c.rhs]
 
-                    self.machine_plan.append(CompareGreater(target_tape=target_tape, source_tape=source_tape))
+                    self.machine_plan.append(CompareGreaterTapes(target_tape=target_tape, source_tape=source_tape))
 
                 elif isinstance(c, StrictLessThan):
                     source_tape = self.symbol_tape[c.rhs]
                     target_tape = self.symbol_tape[c.lhs]
 
-                    self.machine_plan.append(CompareStrictGreater(target_tape=target_tape, source_tape=source_tape))
+                    self.machine_plan.append(
+                        CompareStrictGreaterTapes(target_tape=target_tape, source_tape=source_tape))
 
                 elif isinstance(c, LessThan):
                     source_tape = self.symbol_tape[c.rhs]
                     target_tape = self.symbol_tape[c.lhs]
 
-                    self.machine_plan.append(CompareGreater(target_tape=target_tape, source_tape=source_tape))
+                    self.machine_plan.append(CompareGreaterTapes(target_tape=target_tape, source_tape=source_tape))
 
                 elif isinstance(c, Unequality):
                     source_tape = self.symbol_tape[c.lhs]
                     target_tape = self.symbol_tape[c.rhs]
 
-                    self.machine_plan.append(CompareUnequal(target_tape=target_tape, source_tape=source_tape))
+                    self.machine_plan.append(CompareUnequalTapes(target_tape=target_tape, source_tape=source_tape))
