@@ -2,6 +2,8 @@ from pyauto.automata.finite import *
 
 import functools
 
+import string
+
 
 class Grammar:
     NULL = "$"
@@ -97,8 +99,9 @@ class Grammar:
             return [(self.start, right) for right in self.rules[self.start]]
 
     def _check_for_pruning_condition_context_sensitive(self, string):
-        return any([string[i] in self.non_terminal and string[i + 1] in self.terminal
-                    for i in range(0, len(string) - 2)])
+        return any([string[i - 1] in self.non_terminal and string[i] in self.terminal and
+                    string[i + 1] in self.non_terminal
+                    for i in range(1, len(string) - 2)])
 
     def _run_from_string(self, string, stack, length, prune=None, rule_stack=None):
         if prune is None:
@@ -241,9 +244,9 @@ class Grammar:
 
 
 class GrammarString:
-    def __init__(self, grammar: Grammar):
+    def __init__(self, grammar: Grammar, current=str()):
         self.grammar = grammar
-        self.current = str()
+        self.current = current
 
     def add_rule(self, rule, right):
         self.grammar.add(rule, right)

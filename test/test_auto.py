@@ -829,6 +829,7 @@ def test_case_2_flang():
 
     assert lang.check_grammar(grammar, length=15)
 
+
 def context_sensitive_grammar_1():
     a, b, c, ccc = symbols("a b c ccc")
     m, k, n = symbols("m k n")
@@ -1601,6 +1602,35 @@ def context_sensitive_grammar_18():
     assert cfl.check_grammar(grammar, length=10)
 
     print(grammar)
+
+
+def context_sensitive_grammar_19():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    k, m, n = symbols("k m n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n, a ** n],
+                          conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "RX")
+
+    buffer.run_rule("R", "aRBC", times=3)
+    buffer.run_rule("R", "aB")
+
+    buffer.run_rule_until("CB", "BC")
+    buffer.run_rule_until("CX", "XC")
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bX", "ba")
+
+    buffer.run_rule_until("aC", "aa")
+
+    assert cfl.check_grammar(grammar, length=10)
 
 
 def run_cases():

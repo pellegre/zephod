@@ -329,6 +329,7 @@ class ExponentSpace:
 
     def _generate_space(self, length, current, stack):
         rest = set(self.symbols.difference(set(current.keys())))
+        safety_counter = 0
 
         if len(rest):
             symbol = rest.pop()
@@ -343,6 +344,10 @@ class ExponentSpace:
                     self._generate_space(length, current.copy(), stack)
 
                 value += 1
+                safety_counter += 1
+
+                if safety_counter % 1500 == 0:
+                    print("[+] _generate_space is not meeting conditions...", current)
 
         else:
             if self._get_partial_sum(current) <= length:
@@ -425,11 +430,12 @@ class Language:
             if len(missing_strings):
                 print("\n\n[+] MISSING strings :")
                 for s in missing_strings:
-                    print(" -", s)
+                    print(" -", s, len(s))
 
             if len(invalid_strings):
                 print("\n\n[+] INVALID strings :")
                 for s in invalid_strings:
+                    print(" -", s, len(s))
                     grammar.print_stack(s)
 
             return False
@@ -489,8 +495,11 @@ class LanguageFormula(Language):
                 self.lone_symbols.add(expr)
 
         self.group_length, self.total_length = {}, Number(0)
-        if len(self.lone_symbols):
+        if len(self.lone_symbols) > 1:
             self.total_length += reduce(lambda w, v: len(str(w)) + len(str(v)), self.lone_symbols)
+
+        elif len(self.lone_symbols) == 1:
+            self.total_length += len(str(next(iter(self.lone_symbols))))
 
         for part in self.expression_partition:
             length = Number(0)

@@ -157,6 +157,227 @@ class ParseEqual(BlockPlan):
         return current_state
 
 
+class ParseEqualLeft(BlockPlan):
+    def __init__(self, tape, **kwargs):
+        super().__init__(**kwargs)
+        self.tape = tape
+
+    def __str__(self):
+        return "ParseEqual on " + super().__str__() + " in tape " + str(self.tape)
+
+    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
+        prefix = initial.prefix
+
+        for each in final:
+            next_symbol = final[each]
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A("X", move=Stay())
+            transition.add(initial, each, delta)
+
+        current_state = initial
+
+        delta = transition.get_blank_delta()
+        delta[C(0)] = A(word[0], move=Stay())
+        delta[C(self.tape)] = A(Tape.BLANK, move=Left())
+        transition.add(current_state, current_state, delta)
+
+        for i in range(0, len(word)):
+            delta = transition.get_blank_delta()
+
+            if i == len(word) - 1:
+                next_state = initial
+                delta[C(self.tape)] = A("Z", move=Left())
+
+            else:
+                delta[C(self.tape)] = A("Z", move=Stay())
+                next_state = transition.get_new_state(prefix=prefix,
+                                                      description="parsed letter " + word[i] +
+                                                                  " of word " + word +
+                                                                  " while verifying counter in C" + str(self.tape))
+
+            delta[C(0)] = A(word[i], move=Right())
+            transition.add(current_state, next_state, delta)
+
+            current_state = next_state
+
+        return current_state
+
+
+class ParseEqualRight(BlockPlan):
+    def __init__(self, tape, **kwargs):
+        super().__init__(**kwargs)
+        self.tape = tape
+
+    def __str__(self):
+        return "ParseEqual on " + super().__str__() + " in tape " + str(self.tape)
+
+    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
+        prefix = initial.prefix
+
+        for each in final:
+            next_symbol = final[each]
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A(Tape.BLANK, move=Stay())
+            transition.add(initial, each, delta)
+
+        current_state = initial
+
+        delta = transition.get_blank_delta()
+        delta[C(0)] = A(word[0], move=Stay())
+        delta[C(self.tape)] = A("X", move=Right())
+        transition.add(current_state, current_state, delta)
+
+        for i in range(0, len(word)):
+            delta = transition.get_blank_delta()
+
+            if i == len(word) - 1:
+                next_state = initial
+                delta[C(self.tape)] = A("Z", move=Right())
+
+            else:
+                delta[C(self.tape)] = A("Z", move=Stay())
+                next_state = transition.get_new_state(prefix=prefix,
+                                                      description="parsed letter " + word[i] +
+                                                                  " of word " + word +
+                                                                  " while verifying counter in C" + str(self.tape))
+
+            delta[C(0)] = A(word[i], move=Right())
+            transition.add(current_state, next_state, delta)
+
+            current_state = next_state
+
+        return current_state
+
+
+class ParseStrictLessEqual(BlockPlan):
+    def __init__(self, tape, **kwargs):
+        super().__init__(**kwargs)
+        self.tape = tape
+
+    def __str__(self):
+        return "ParseStrictLessEqual on " + super().__str__() + " in tape " + str(self.tape)
+
+    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
+        prefix = initial.prefix
+        rewind_state = transition.get_new_state(prefix=prefix,
+                                                description="rewind " + C(self.tape) + " after parsing block " + word)
+
+        for each in final:
+            next_symbol = final[each]
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A("Z", move=Right())
+            transition.add(initial, rewind_state, delta)
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A("Z", move=Right())
+            transition.add(rewind_state, rewind_state, delta)
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A(Tape.BLANK, move=Stay())
+            transition.add(rewind_state, each, delta)
+
+        current_state = initial
+
+        delta = transition.get_blank_delta()
+        delta[C(0)] = A(word[0], move=Stay())
+        delta[C(self.tape)] = A(Tape.BLANK, move=Left())
+        transition.add(current_state, current_state, delta)
+
+        for i in range(0, len(word)):
+            delta = transition.get_blank_delta()
+
+            if i == len(word) - 1:
+                next_state = initial
+                delta[C(self.tape)] = A("Z", move=Left())
+
+            else:
+                delta[C(self.tape)] = A("Z", move=Stay())
+                next_state = transition.get_new_state(prefix=prefix,
+                                                      description="parsed letter " + word[i] +
+                                                                  " of word " + word +
+                                                                  " while verifying counter in C" + str(self.tape))
+
+            delta[C(0)] = A(word[i], move=Right())
+            transition.add(current_state, next_state, delta)
+
+            current_state = next_state
+
+        return current_state
+
+
+class ParseLessEqual(BlockPlan):
+    def __init__(self, tape, **kwargs):
+        super().__init__(**kwargs)
+        self.tape = tape
+
+    def __str__(self):
+        return "ParseStrictLessEqual on " + super().__str__() + " in tape " + str(self.tape)
+
+    def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
+        prefix = initial.prefix
+        rewind_state = transition.get_new_state(prefix=prefix,
+                                                description="rewind " + C(self.tape) + " after parsing block " + word)
+
+        for each in final:
+            next_symbol = final[each]
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A("Z", move=Right())
+            transition.add(initial, rewind_state, delta)
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A("X", move=Right())
+            transition.add(initial, rewind_state, delta)
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A("Z", move=Right())
+            transition.add(rewind_state, rewind_state, delta)
+
+            delta = transition.get_blank_delta()
+            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[C(self.tape)] = A(Tape.BLANK, move=Stay())
+            transition.add(rewind_state, each, delta)
+
+        current_state = initial
+
+        delta = transition.get_blank_delta()
+        delta[C(0)] = A(word[0], move=Stay())
+        delta[C(self.tape)] = A(Tape.BLANK, move=Left())
+        transition.add(current_state, current_state, delta)
+
+        for i in range(0, len(word)):
+            delta = transition.get_blank_delta()
+
+            if i == len(word) - 1:
+                next_state = initial
+                delta[C(self.tape)] = A("Z", move=Left())
+
+            else:
+                delta[C(self.tape)] = A("Z", move=Stay())
+                next_state = transition.get_new_state(prefix=prefix,
+                                                      description="parsed letter " + word[i] +
+                                                                  " of word " + word +
+                                                                  " while verifying counter in C" + str(self.tape))
+
+            delta[C(0)] = A(word[i], move=Right())
+            transition.add(current_state, next_state, delta)
+
+            current_state = next_state
+
+        return current_state
+
+
 class OperationPlan(MachinePlan):
     def __init__(self, source_tape, target_tape):
         self.source_tape, self.target_tape = source_tape, target_tape
@@ -191,7 +412,7 @@ class Accumulate(OperationPlan):
         prefix = initial.prefix
 
         left_state = transition.get_new_state(prefix=prefix, description="moving left while accumulating C" +
-                                                          str(tape) + " on " + C(result))
+                                                                         str(tape) + " on " + C(result))
 
         delta = transition.get_blank_delta()
         delta[C(result)] = A(Tape.BLANK, move=Stay())
@@ -204,7 +425,7 @@ class Accumulate(OperationPlan):
         transition.add(left_state, left_state, delta)
 
         right_state = transition.get_new_state(prefix=prefix, description="hit X while accumulating C" +
-                                                           str(tape) + " on " + C(result))
+                                                                          str(tape) + " on " + C(result))
 
         delta = transition.get_blank_delta()
         delta[C(result)] = A(Tape.BLANK, move=Stay())

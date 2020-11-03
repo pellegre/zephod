@@ -824,52 +824,6 @@ def testing_turing_language():
     assert not lang_machine.turing.read("aaaaaaeeeeebccccc")  # it shouldn't detect it
 
 
-class LanguageGrammar:
-    @staticmethod
-    def get_non_terminal_from_counter(counter):
-        return chr((counter - ord('A') - 1) % (ord('R') - ord('A') + 1) + ord('A'))
-
-    def __init__(self, language, non_terminal='S'):
-        self.language = LanguageFormula.normalize(language)
-
-        self.initial = non_terminal
-        self.non_terminal_counter = ord(self.initial)
-
-        self.non_terminal_for_group, self.non_terminal_for_blocks = {}, {}
-
-        for each in self.language.expression_partition:
-            for i, expr in enumerate(self.language.expression_partition[each]):
-                if each not in self.non_terminal_for_blocks:
-                    self.non_terminal_for_blocks[each] = {}
-
-                self.non_terminal_for_blocks[each][i] = self._get_non_terminal()
-
-            self.non_terminal_for_group[each] = self.non_terminal_for_blocks[each][0]
-
-        self.grammar = OpenGrammar()
-
-    def info(self):
-        print("\n[+] language")
-        self.language.info()
-
-        print("\n[+] grammar")
-        print("[+] initial", self.initial)
-        print("[+] non terminal for group", self.non_terminal_for_group)
-        print("[+] non terminal for blocks", self.non_terminal_for_blocks)
-
-        print(self.grammar)
-
-    def _get_minimum_indices(self, constraints=None):
-        space = ExponentSpace(sym=self.language.symbols, conditions=self.language.conditions,
-                              length=self.language.total_length)
-
-        return space.get_minimal(constraints)
-
-    def _get_non_terminal(self):
-        self.non_terminal_counter -= 1
-        return self.get_non_terminal_from_counter(self.non_terminal_counter)
-
-
 class GrammarLeaf:
     def __init__(self, language, initial, grammar):
         if len(language.symbols) > 1:
@@ -894,8 +848,24 @@ class GrammarLeaf:
         elif len(language.expression) == 2:
             return TupleLeaf(language=language, initial=initial, grammar=grammar)
 
-        else:
-            pass
+        elif len(language.expression) == 3:
+            return TripletLeaf(language=language, initial=initial, grammar=grammar)
+
+    @staticmethod
+    def build_genesis(language, initial, grammar):
+        if len(language.expression) == 1:
+            expr = language.expression[0]
+            if isinstance(expr, Symbol):
+                return LoneGenesisLeaf(language=language, initial=initial, grammar=grammar)
+
+            else:
+                return SingleLeaf(language=language, initial=initial, grammar=grammar)
+
+        elif len(language.expression) == 2:
+            return TupleGenesisLeaf(language=language, initial=initial, grammar=grammar)
+
+        elif len(language.expression) == 3:
+            return TripletGenesisLeaf(language=language, initial=initial, grammar=grammar)
 
 
 class LoneLeaf(GrammarLeaf):
@@ -908,7 +878,37 @@ class LoneLeaf(GrammarLeaf):
         self.non_terminals = {expr: self.initial}
 
 
+class LoneGenesisLeaf(GrammarLeaf):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        assert len(self.language.expression) == 1
+
+        expr = self.language.expression[0]
+        assert isinstance(expr, Symbol)
+        self.non_terminals = {expr: self.initial}
+
+        # trigger domino train wave blob
+        self.grammar.add(self.initial, str(expr))
+
+
 class SingleLeaf(GrammarLeaf):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        assert len(self.language.expression) == 1
+
+        expr = self.language.expression[0]
+
+        assert isinstance(expr, Pow)
+
+        non_terminal = self.grammar.get_non_terminal()
+        self.non_terminals = {expr: non_terminal}
+
+        self.grammar.add(self.initial, self.initial + non_terminal)
+        self.grammar.add(self.initial, non_terminal)
+
+
+class SingleGenesisLeaf(GrammarLeaf):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -945,8 +945,125 @@ class TupleLeaf(GrammarLeaf):
         self.grammar.add(self.initial, non_terminal_left + non_terminal_right)
 
 
+class TupleGenesisLeaf(GrammarLeaf):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        assert len(self.language.expression) == 2
+
+        expr_left = self.language.expression[0]
+        expr_right = self.language.expression[1]
+
+        assert isinstance(expr_left, Pow) and isinstance(expr_right, Pow)
+
+        non_terminal_right = self.grammar.get_non_terminal()
+
+        self.non_terminals = {expr_left: self.initial, expr_right: non_terminal_right}
+
+        self.grammar.add(self.initial, str(expr_left.base) + self.initial + non_terminal_right)
+        self.grammar.add(self.initial, str(expr_left.base) + non_terminal_right)
+
+        # buffer.run_rule("S", "Z")
+        # buffer.run_rule("Z", "aZB", times=4)
+        # buffer.run_rule("Z", "aB")
+        #
+        # buffer.run_rule_until("aB", "ab")
+        # buffer.run_rule_until("bB", "bb")
+        #
+        # assert cfl.check_grammar(grammar, length=10)
+
+
+class TripletLeaf(GrammarLeaf):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        assert len(self.language.expression) == 3
+
+        expr_a, ta = self.language.expression[0], self.grammar.get_non_terminal()
+        expr_b, tb = self.language.expression[1], self.grammar.get_non_terminal()
+        expr_c, tc = self.language.expression[2], self.grammar.get_non_terminal()
+
+        self.non_terminals = {expr_a: ta, expr_b: tb, expr_c: tc}
+
+        self.grammar.add(self.initial, self.initial + ta + tb + tc)
+        self.grammar.add(self.initial, ta + tb + tc)
+
+        self.grammar.add(tc + ta, ta + tc)
+        self.grammar.add(tc + tb, tb + tc)
+        self.grammar.add(tb + ta, ta + tb)
+
+
+class TripletGenesisLeaf(GrammarLeaf):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        assert len(self.language.expression) == 3
+
+        expr_a = self.language.expression[0].base
+        expr_b, tb = self.language.expression[1], self.grammar.get_non_terminal()
+        expr_c, tc = self.language.expression[2], self.grammar.get_non_terminal()
+
+        self.non_terminals = {self.language.expression[0]: self.initial, expr_b: tb, expr_c: tc}
+
+        self.grammar.add(self.initial, str(expr_a) + self.initial + tb + tc)
+        self.grammar.add(self.initial, str(expr_a) + tb + tc)
+
+        self.grammar.add(tc + tb, tb + tc)
+
+        # buffer.run_rule("S", "Z")
+        # buffer.run_rule("Z", "aZBC", times=4)
+        # buffer.run_rule("Z", "aBC")
+        #
+        # buffer.run_rules_until([("CB", "BC")])
+        #
+        # buffer.run_rule_until("aB", "ab")
+        # buffer.run_rule_until("bB", "bb")
+        #
+        # buffer.run_rule_until("bC", "bc")
+        #
+        # buffer.run_rule_until("cC", "cc")
+
+
+class MultipleLeaf(GrammarLeaf):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        assert len(self.language.expression) > 2
+
+        self.non_terminals = {expr: self.grammar.get_non_terminal() for expr in self.language.expression}
+
+
 class GrammarTree:
     ONE = "one"
+
+    @staticmethod
+    def generate_rule_swapper(buffer, non_terminal_blocks, grammar):
+        non_terminal_arrangement = reduce(lambda l, xx: l.append(xx) or l if xx not in l else l, buffer, [])
+
+        for i in range(0, len(non_terminal_blocks)):
+            symbol = non_terminal_blocks[i]
+            for j in filter(lambda m: non_terminal_arrangement[m] == symbol,
+                            range(0, len(non_terminal_arrangement))):
+
+                if j > i:
+                    for k in range(i, j):
+                        neighbor = non_terminal_arrangement[k]
+
+                        grammar.add(neighbor + symbol, symbol + neighbor)
+
+                    after_reordering = list()
+                    for k in range(0, i):
+                        after_reordering.append(non_terminal_arrangement[k])
+
+                    after_reordering.append(symbol)
+
+                    for k in filter(lambda m: non_terminal_arrangement[m] != symbol,
+                                    range(i, len(non_terminal_arrangement))):
+                        after_reordering.append(non_terminal_arrangement[k])
+
+                    non_terminal_arrangement = after_reordering
+
+        return non_terminal_arrangement
 
     def __init__(self, language, initial="S"):
         self.language = LanguageFormula.normalize(language)
@@ -962,135 +1079,134 @@ class GrammarTree:
         self._build_tree(self.initial)
 
         leafs = networkx.get_node_attributes(self.tree, name="leaf")
-        self.non_terminals = {}
+        self.non_terminals, self.expression_non_terminals = {}, {}
 
         for node in leafs:
             for expr in leafs[node].non_terminals:
                 self.non_terminals[expr] = leafs[node].non_terminals[expr]
+                self.expression_non_terminals[leafs[node].non_terminals[expr]] = expr
 
-        self.non_terminal_blocks = [self.non_terminals[e] for e in self.language.expression]
+        self.non_terminal_blocks = [self.non_terminals[e] for e in self.language.expression if e in self.non_terminals]
 
         self._swap_symbols()
 
         self._add_terminal_rules()
 
+        genesis_block = self.non_terminal_blocks[0]
+        expr = self.language.expression[0]
+
+        if isinstance(expr, Symbol):
+            terminal = str(expr)
+            self.grammar.rules[self.initial] = [terminal + each for each in self.grammar.rules[self.initial]]
+            self.grammar.add(terminal + genesis_block, terminal + str(self.language.expression[1].base))
+        else:
+            terminal = str(expr.base)
+
+            grammar = OpenGrammar()
+            for each in self.grammar.rules:
+                if genesis_block not in each:
+                    for right in self.grammar.rules[each]:
+                        if genesis_block in right:
+                            if right[0] == genesis_block:
+                                grammar.add(each, right.replace(genesis_block, terminal))
+                            else:
+                                grammar.add(each, right.replace(each + genesis_block, terminal + each))
+                        else:
+                            grammar.add(each, right)
+
+            self.grammar = grammar
+
+        minimal = self._get_minimum_indices()
+        for expr in self.non_terminals:
+            if any([m[expr.exp] == 0 for m in minimal]):
+                self.grammar.add(self.non_terminals[expr], Transition.NULL)
+
+    def _get_minimum_indices(self, constraints=None):
+        space = ExponentSpace(sym=self.language.symbols, conditions=self.language.conditions,
+                              length=self.language.total_length)
+
+        return space.get_minimal(constraints)
+
     def _add_terminal_rules(self):
-        for each in self.generate_non_terminal():
-            non_terminal_arrangement = reduce(lambda l, x: l.append(x) or l if x not in l else l, each, [])
+        non_terminal_arrangement = self.non_terminal_blocks
 
-            for i in range(0, len(non_terminal_arrangement) - 1):
-                symbol, next_symbol = non_terminal_arrangement[i], non_terminal_arrangement[i + 1]
+        block = 0
+        for i in range(0, len(non_terminal_arrangement) - 1):
+            symbol, next_symbol = non_terminal_arrangement[i], non_terminal_arrangement[i + 1]
 
-                expr, next_expr = self.language.expression[i], self.language.expression[i + 1]
+            expr, next_expr = self.expression_non_terminals[symbol], self.expression_non_terminals[next_symbol]
 
-                if isinstance(expr, Symbol):
-                    # trigger domino train wave blow
-                    if i == 0:
-                        self.grammar.add(symbol, str(expr))
+            while self.language.expression[block] != expr and block < len(self.language.expression):
+                block += 1
 
-                    if isinstance(next_expr, Symbol):
-                        self.grammar.add(symbol + next_symbol, str(expr) + str(next_expr))
-                    else:
-                        self.grammar.add(str(expr) + next_symbol, str(expr) + str(next_expr.base))
-                else:
-                    self.grammar.add(str(expr.base) + symbol, 2*str(expr.base))
+            next_block_expr = self.language.expression[block + 1]
 
-                    if isinstance(next_expr, Symbol):
-                        self.grammar.add(str(expr.base) + next_symbol, str(expr.base) + str(next_expr))
-                    else:
-                        self.grammar.add(str(expr.base) + next_symbol, str(expr.base) + str(next_expr.base))
+            self.grammar.add(str(expr.base) + symbol, 2*str(expr.base))
 
-            # omega
-            last_symbol = non_terminal_arrangement[-1]
-            last_expr = self.language.expression[-1]
+            if isinstance(next_block_expr, Symbol):
+                self.grammar.add(str(expr.base) + next_symbol,
+                                 str(expr.base) + str(next_block_expr) + str(next_expr.base))
+            else:
+                self.grammar.add(str(expr.base) + next_symbol, str(expr.base) + str(next_expr.base))
 
-            if isinstance(last_expr, Pow):
-                self.grammar.add(str(last_expr.base) + last_symbol, 2 * str(last_expr.base))
+        # omega
+        last_symbol = non_terminal_arrangement[-1]
+        last_expr = self.language.expression[-1]
+
+        if isinstance(last_expr, Pow):
+            self.grammar.add(str(last_expr.base) + last_symbol, 2 * str(last_expr.base))
 
     def _swap_symbols(self):
         for each in self.generate_non_terminal():
-            non_terminal_arrangement = reduce(lambda l, x: l.append(x) or l if x not in l else l, each, [])
+            self.generate_rule_swapper(each, self.non_terminal_blocks, self.grammar)
 
-            for i in range(0, len(self.non_terminal_blocks)):
-                symbol = self.non_terminal_blocks[i]
-                for j in filter(lambda m: non_terminal_arrangement[m] == symbol,
-                                range(0, len(non_terminal_arrangement))):
-
-                    if j > i:
-                        for k in range(i, j):
-                            neighbor = non_terminal_arrangement[k]
-
-                            self.grammar.add(neighbor + symbol, symbol + neighbor)
-
-                        after_reordering = list()
-                        for k in range(0, i):
-                            after_reordering.append(non_terminal_arrangement[k])
-
-                        after_reordering.append(symbol)
-
-                        for k in filter(lambda m: non_terminal_arrangement[m] != symbol,
-                                        range(i, len(non_terminal_arrangement))):
-                            after_reordering.append(non_terminal_arrangement[k])
-
-                        non_terminal_arrangement = after_reordering
+    def _is_root(self, node):
+        return self.initial == node
 
     def _build_tree(self, node):
         language = networkx.get_node_attributes(self.tree, "language")
 
         blocks = []
-        if len(language[node].symbols) > 1:
-            stack, block = set(), 0
-            for each in language[node].expression:
+        stack, block = set(), 0
+        for each in language[node].expression:
 
-                if isinstance(each, Symbol):
-                    lang = LanguageFormula(expression=[each], conditions=[])
+            if isinstance(each, Pow):
+                if len(language[node].expression_partition) > 1:
+                    part = language[node].symbols_partition[each.exp]
+                    expr = [e for e in language[node].expression if isinstance(e, Pow) and e.exp in part]
+                    cond = [c for c in language[node].conditions if c.free_symbols.issubset(part)]
+
+                else:
+                    part = each.exp
+                    expr = [e for e in language[node].expression if isinstance(e, Pow) and e.exp == part]
+                    cond = [each.exp >= 0]
+
+                if part not in stack:
+                    stack.add(part)
+
                     non_terminal = self.grammar.get_non_terminal()
-
-                    self.tree.add_node(non_terminal, language=lang,
-                                       leaf=GrammarLeaf.build(lang, non_terminal, self.grammar))
-                    self.tree.add_edge(node, non_terminal, block=block)
 
                     blocks.append(non_terminal)
 
-                    block += 1
+                    lang = LanguageFormula(expression=expr, conditions=cond)
 
-                elif isinstance(each, Pow):
-                    if len(language[node].expression_partition) > 1:
-                        part = language[node].symbols_partition[each.exp]
-                        expr = [e for e in language[node].expression if isinstance(e, Pow) and e.exp in part]
-                        cond = [c for c in language[node].conditions if c.free_symbols.issubset(part)]
+                    if len(lang.symbols) == 1:
+                        self.tree.add_node(non_terminal, language=lang,
+                                           leaf=GrammarLeaf.build(lang, non_terminal, self.grammar))
 
                     else:
-                        part = each.exp
-                        expr = [e for e in language[node].expression if isinstance(e, Pow) and e.exp == part]
-                        cond = [each.exp >= 0]
-
-                    if part not in stack:
-                        stack.add(part)
-
-                        non_terminal = self.grammar.get_non_terminal()
-
-                        lang = LanguageFormula(expression=expr, conditions=cond)
-
-                        if len(lang.symbols) == 1:
-                            self.tree.add_node(non_terminal, language=lang,
-                                               leaf=GrammarLeaf.build(lang, non_terminal, self.grammar))
-                        else:
-                            self.tree.add_node(non_terminal, language=lang)
-
-                        self.tree.add_edge(node, non_terminal, block=block)
-
-                        blocks.append(non_terminal)
-
+                        self.tree.add_node(non_terminal, language=lang)
                         self._build_tree(non_terminal)
 
-                        block += 1
+                    self.tree.add_edge(node, non_terminal, block=block)
 
-            if node == self.initial:
-                self.grammar.add(node, ''.join(blocks))
-            else:
-                self.grammar.add(node, node + ''.join(blocks))
-                self.grammar.add(node, ''.join(blocks))
+                    block += 1
+
+        if node == self.initial:
+            self.grammar.add(node, ''.join(blocks))
+        else:
+            self.grammar.add(node, node + ''.join(blocks))
+            self.grammar.add(node, ''.join(blocks))
 
     def _print_tree(self, node, space=""):
         blocks = networkx.get_edge_attributes(self.tree, "block")
@@ -1161,9 +1277,9 @@ class GrammarTree:
                             set([c for c in each]).issubset(self.grammar.non_terminal):
 
                         for right in self.grammar.rules[each]:
-                            buffer.run_rule_until(each, right)
-
-                        run_rules = True
+                            if set([c for c in right]).issubset(self.grammar.non_terminal):
+                                buffer.run_rule_until(each, right)
+                                run_rules = True
 
             buffers.append(buffer.current)
 
@@ -1175,12 +1291,14 @@ class GrammarTree:
         for each in self.generate_non_terminal():
             run_rules = True
 
+            buffer = GrammarString(grammar=self.grammar, current=each)
+
             while run_rules:
                 run_rules = False
                 for left in self.grammar.rules:
                     if left in each:
                         for right in self.grammar.rules[left]:
-                            each = self.grammar.run_rule(each, left, right)
+                            each = buffer.run_rule(left, right)
                         run_rules = True
 
             buffers.append(each)
@@ -1195,16 +1313,9 @@ class GrammarTree:
         plt.show()
 
 
-def main():
-    print("[+] FD ")
-
-    # testing_turing_language()
-
+def test_grammar_tree_1():
     a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
     m, n, i, j = symbols("m n i j")
-
-    cfl = LanguageFormula(expression=[a ** m, x ** j, b ** n, c ** m, y ** j, w ** i],
-                          conditions=[n > 0, m > n, i > 0, j > i])
 
     cfl = LanguageFormula(expression=[aa, a ** n, d ** j, x ** i, b ** n, w, c ** j, w ** i],
                           conditions=[n > 0, i > 0, j > 0])
@@ -1216,10 +1327,293 @@ def main():
 
     tree.info()
 
-    print(tree.grammar.enumerate(length=15))
-
     assert cfl.check_grammar(tree.grammar, length=15)
+
+
+def test_grammar_tree_2():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a, a ** n, d ** j, x ** i, b ** n, w, c ** j, w ** i, d ** n],
+                          conditions=[n > 0, i > 0, j > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    assert cfl.check_grammar(tree.grammar, length=10)
+
+
+def test_grammar_tree_3():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a, a ** n, d ** n],
+                          conditions=[n > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    assert cfl.check_grammar(tree.grammar, length=10)
+
+
+def test_grammar_tree_4():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a, a ** n, y ** j],
+                          conditions=[n > 0, j > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    assert cfl.check_grammar(tree.grammar, length=10)
+
+
+def test_grammar_tree_5():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a ** n, b, x ** i, b ** n, c ** n, w ** i, y ** i],
+                          conditions=[n > 0, i > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    print(tree.grammar.enumerate(length=15))
+    assert cfl.check_grammar(tree.grammar, length=15)
+
+
+def test_sentinel_grammar():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n, a ** n],
+                          conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "RX")
+
+    buffer.run_rule("R", "aRBC", times=3)
+    buffer.run_rule("R", "aB")
+
+    buffer.run_rule_until("CB", "BC")
+    buffer.run_rule_until("CX", "XC")
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bX", "ba")
+
+    buffer.run_rule_until("aC", "aa")
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def test_genesis_leafs():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n, c ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "Z")
+    buffer.run_rule("Z", "aZBC", times=4)
+    buffer.run_rule("Z", "aBC")
+
+    buffer.run_rules_until([("CB", "BC")])
+
+    buffer.run_rule_until("aB", "ab")
+    buffer.run_rule_until("bB", "bb")
+
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+
+    assert cfl.check_grammar(grammar, length=10)
+
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "Z")
+    buffer.run_rule("Z", "aZB", times=4)
+    buffer.run_rule("Z", "aB")
+
+    buffer.run_rule_until("aB", "ab")
+    buffer.run_rule_until("bB", "bb")
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def grammar_case_1():
+    a, b, c, d, w, x, y, aa, f = symbols("a b c d w x y aa f")
+    m, n, i, j, k = symbols("m n i j k")
+
+    cfl = LanguageFormula(expression=[a ** k, d ** n, b, b ** k, c ** k, f ** d],
+                          conditions=[n >= 0, k > 0, d < n, d >= 0])
+
+    cfl.info()
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "RN")
+    grammar.add("S", "R")
+    grammar.add("S", "RT")
+
+    grammar.add("R", "aRPO")
+    grammar.add("R", "aPO")
+
+    grammar.add("OP", "PO")
+
+    grammar.add("N", "MNL")
+    grammar.add("NL", "TL")
+
+    grammar.add("T", "TM")
+    grammar.add("T", "M")
+
+    grammar.add("PM", "MP")
+    grammar.add("OM", "MO")
+
+    grammar.add("aM", "ad")
+    grammar.add("dM", "dd")
+    grammar.add("dP", "dbb")
+    grammar.add("bP", "bb")
+    grammar.add("bO", "bc")
+    grammar.add("cO", "cc")
+    grammar.add("cL", "cf")
+    grammar.add("fL", "ff")
+
+    print(grammar)
+    print(grammar.enumerate(length=10))
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def turing_case_1():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
+                          conditions=[k >= 0, m >= 0, m < n])
+
+    planner = TuringPlanner(language=cfl, tapes=2)
+
+    planner.add_plan(ParseLoneSymbol(block=0))
+    planner.add_plan(ParseAccumulate(block=1, tape=1))
+
+    planner.add_plan(ParseAccumulate(block=2, tape=2))
+
+    planner.add_plan(ParseLoneSymbol(block=3))
+
+    planner.add_plan(ParseEqualLeft(block=4, tape=1))
+    planner.add_plan(ParseEqualRight(block=5, tape=1))
+
+    planner.add_plan(ParseStrictLessEqual(block=6, tape=2))
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("aaaaeeeeebbccccccc")
+
+    for data in cfl.enumerate_strings(length=22):
+        print("[+] testing string", data)
+        read_status = machine.turing.read(data)
+
+        if not read_status:
+            machine.turing.debug(data)
+            machine.info()
+
+        assert read_status
+
+    machine.info()
+
+
+def main():
+    print("[+] FD ")
+
+    # grammar_case_1()
+
+    # test_grammar_tree_1()
+    # test_grammar_tree_2()
+    # test_grammar_tree_3()
+    # test_grammar_tree_4()
+    # test_grammar_tree_5()
+
+    # a, b, c, d, w, x, y, aa, f = symbols("a b c d w x y aa f")
+    # m, n, i, j, k = symbols("m n i j k")
+    #
+    # cfl = LanguageFormula(expression=[a ** k, d ** n, b, b ** k, c ** k, f ** n],
+    #                       conditions=[n > 0, k > 0])
+    #
+    # tree = GrammarTree(language=cfl)
+    #
+    # print("[+] terminals", tree.generate_with_terminals())
+    #
+    # tree.info()
+    #
+    # print(tree.grammar.enumerate(length=15))
+    # assert cfl.check_grammar(tree.grammar, length=15)
+
     # tree.plot()
+
+    testing_turing_language()
+    
+    x, y, i1, i0 = symbols("x y 1 0")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
+                          conditions=[n >= 0, m >= 0])
+
+    planner = TuringPlanner(language=cfl, tapes=2)
+
+    planner.add_plan(ParseAccumulate(block=0, tape=1))
+
+    planner.add_plan(ParseLoneSymbol(block=1))
+
+    planner.add_plan(ParseAccumulate(block=2, tape=2))
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("111101111")
+
+    # for data in cfl.enumerate_strings(length=22):
+    #     print("[+] testing string", data)
+    #     read_status = machine.turing.read(data)
+    #
+    #     if not read_status:
+    #         machine.turing.debug(data)
+    #         machine.info()
+    #
+    #     assert read_status
+    #
+    # machine.info()
+
+    # TuringPlotter.to_csv("machine.csv", machine.turing)
 
 
 main()
