@@ -1116,11 +1116,6 @@ class GrammarTree:
 
             self.grammar = grammar
 
-        minimal = self._get_minimum_indices()
-        for expr in self.non_terminals:
-            if any([m[expr.exp] == 0 for m in minimal]):
-                self.grammar.add(self.non_terminals[expr], Transition.NULL)
-
     def _get_minimum_indices(self, constraints=None):
         space = ExponentSpace(sym=self.language.symbols, conditions=self.language.conditions,
                               length=self.language.total_length)
@@ -1477,20 +1472,89 @@ def grammar_case_1():
     m, n, i, j, k = symbols("m n i j k")
 
     cfl = LanguageFormula(expression=[a ** k, d ** n, b, b ** k, c ** k, f ** d],
-                          conditions=[n >= 0, k > 0, d < n, d >= 0])
+                          conditions=[k >= 0, d < n, d >= 0])
 
     cfl.info()
 
     grammar = OpenGrammar()
 
     grammar.add("S", "RN")
-    grammar.add("S", "R")
-    grammar.add("S", "RT")
+    grammar.add("S", "J")
+    grammar.add("S", "K")
 
     grammar.add("R", "aRPO")
     grammar.add("R", "aPO")
 
     grammar.add("OP", "PO")
+
+    grammar.add("K", "dK")
+
+    grammar.add("J", "dJL")
+    grammar.add("J", "JM")
+    grammar.add("J", "M")
+
+    grammar.add("N", "MNL")
+    grammar.add("N", "NM")
+    grammar.add("N", "M")
+
+    grammar.add("PM", "MP")
+    grammar.add("OM", "MO")
+
+    grammar.add("aM", "ad")
+
+    grammar.add("dM", "dd")
+    grammar.add("dP", "dbb")
+    grammar.add("dL", "dbf")
+    grammar.add("dK", "db")
+
+    grammar.add("bP", "bb")
+    grammar.add("bO", "bc")
+    grammar.add("bL", "bf")
+
+    grammar.add("cO", "cc")
+    grammar.add("cL", "cf")
+
+    grammar.add("fL", "ff")
+
+    print(grammar)
+    print(grammar.enumerate(length=10))
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def grammar_case_2():
+    a, b, c, d, w, x, y, aa, f = symbols("a b c d w x y aa f")
+    m, n, i, j, k = symbols("m n i j k")
+
+    lang_a = LanguageFormula(expression=[a ** k, d ** n, b, b ** k, c ** k, f ** d],
+                             conditions=[n > 0, k >= 0, d < n, d >= 0])
+
+    lang_b = LanguageFormula(expression=[a ** k, b, b ** k, c ** k],
+                             conditions=[k >= 0])
+
+    cfl = lang_a + lang_b
+
+    cfl.info()
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "RN")
+    grammar.add("S", "RT")
+    grammar.add("S", "R")
+    grammar.add("S", "J")
+    grammar.add("S", "K")
+
+    grammar.add("S", "b")
+
+    grammar.add("R", "aRPO")
+    grammar.add("R", "aPO")
+
+    grammar.add("OP", "PO")
+
+    grammar.add("K", "dK")
+
+    grammar.add("J", "dJL")
+    grammar.add("JL", "TL")
 
     grammar.add("N", "MNL")
     grammar.add("NL", "TL")
@@ -1502,16 +1566,91 @@ def grammar_case_1():
     grammar.add("OM", "MO")
 
     grammar.add("aM", "ad")
+    grammar.add("aP", "abb")
+
     grammar.add("dM", "dd")
     grammar.add("dP", "dbb")
+    grammar.add("dL", "dbf")
+    grammar.add("dK", "db")
+
     grammar.add("bP", "bb")
     grammar.add("bO", "bc")
+    grammar.add("bL", "bf")
+
     grammar.add("cO", "cc")
     grammar.add("cL", "cf")
+
     grammar.add("fL", "ff")
 
     print(grammar)
-    print(grammar.enumerate(length=10))
+    print(grammar.enumerate(length=15))
+
+    grammar.print_stack("aaadddbbbbcccff")
+    grammar.print_stack("ddddddddbffffff")
+    grammar.print_stack("dddddddddb")
+    grammar.print_stack("aaaadbbbbbcccc")
+    grammar.print_stack("aaaabbbbbcccc")
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def grammar_case_3():
+    a, b, c, d, w, x, y, aa, f, e, ccc = symbols("a b c d w x y aa f e ccc")
+    m, n, i, j, k = symbols("m n i j k")
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
+                          conditions=[k >= 0, m >= 0, m < n])
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "aaRN")
+    grammar.add("S", "aaRT")
+    grammar.add("S", "aaN")
+    grammar.add("S", "aaJ")
+
+    grammar.add("R", "RQPO")
+    grammar.add("R", "QPO")
+
+    grammar.add("OQ", "QO")
+    grammar.add("OP", "PO")
+    grammar.add("PQ", "QP")
+    grammar.add("PM", "MP")
+    grammar.add("OM", "MO")
+
+    grammar.add("N", "MNL")
+    grammar.add("NL", "TL")
+
+    grammar.add("J", "eJ")
+
+    grammar.add("T", "TM")
+    grammar.add("T", "M")
+
+    grammar.add("aaQ", "aaaa")
+    grammar.add("aaM", "aae")
+    grammar.add("aaP", "aabb")
+
+    grammar.add("eM", "ee")
+    grammar.add("eP", "ebb")
+    grammar.add("eL", "ebccc")
+
+    grammar.add("eJ", "eb")
+
+    grammar.add("bP", "bb")
+    grammar.add("bO", "bc")
+
+    grammar.add("cO", "cc")
+    grammar.add("cL", "cccc")
+    grammar.add("cccL", "cccccc")
+
+    print(grammar)
+
+    print(grammar.enumerate(length=15))
+
+    grammar.print_stack("aaeeeeebcccccc")
+    grammar.print_stack("aaeeeeeeeeeeeb")
+    grammar.print_stack("aaaaaaeebbbcc")
+    grammar.print_stack("aaaaaaeeebbbcccccccc")
+
     assert cfl.check_grammar(grammar, length=10)
 
 
@@ -1553,8 +1692,135 @@ def turing_case_1():
     machine.info()
 
 
+def turing_function_case_1():
+    x, y, i1, i0 = symbols("x y 1 0")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
+                          conditions=[n >= 0, m >= 0])
+
+    planner = TuringPlanner(language=cfl, tapes=4)
+
+    planner.machine_plan = [
+        ParseAction(block=0, actions=[Copy(tapes=[1, 2])]),
+
+        ParseLoneSymbol(block=1),
+
+        ParseAction(block=2, actions=[Subtract(tapes=[1, 2], symbol="1")]),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+
+        AddWithFactorTapes(target_tape=4, source_tape=3, multiplier=3, symbol="1"),
+
+        WipeTapes(tapes=[1, 2], symbol="1"),
+
+        AddTapes(target_tape=[1, 2], source_tape=0, symbol="1", stop="0"),
+
+        MultiplyTapes(result=4, one_tape=1, other_tape=2, symbol="1")
+    ]
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("111110111")
+
+    machine.info()
+
+    TuringPlotter.to_csv("function.csv", machine.turing)
+
+
+def turing_function_case_2():
+    x, y, i1, i0 = symbols("x y 1 0")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
+                          conditions=[n >= 0, m >= 0])
+
+    planner = TuringPlanner(language=cfl, tapes=3)
+
+    planner.machine_plan = [
+        ParseAction(block=0, actions=[Copy(tapes=[1, 2])]),
+
+        ParseLoneSymbol(block=1),
+
+        ParseAction(block=2, actions=[Subtract(tapes=[1, 2], symbol="1")]),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+
+        WipeTapes(tapes=[1, 2], symbol="1"),
+
+        AddTapes(target_tape=[1, 2], source_tape=0, symbol="1", stop="0"),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1")
+    ]
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("111110111")
+
+    machine.info()
+
+
 def main():
     print("[+] FD ")
+
+    # a, b, c, d, w, x, y, aa, f, e, ccc = symbols("a b c d w x y aa f e ccc")
+    # m, n, i, j, k = symbols("m n i j k")
+    #
+    # cfl = LanguageFormula(expression=[a ** k, a ** n, d ** n, b, b ** k, c ** k, f ** d],
+    #                       conditions=[k >= 0, n > d, d >= 0])
+    #
+    # cfl.info()
+    #
+    # grammar = OpenGrammar()
+    #
+    # grammar.add("S", "RN")
+    #
+    # grammar.add("S", "J")
+    #
+    # grammar.add("R", "aRPO")
+    # grammar.add("R", "aPO")
+    #
+    # grammar.add("N", "NMLK")
+    # grammar.add("N", "MLK")
+    #
+    # grammar.add("J", "aJLK")
+    # grammar.add("J", "aLK")
+    #
+    # grammar.add("PM", "MP")
+    # grammar.add("PL", "LP")
+    #
+    # grammar.add("KL", "LK")
+    # grammar.add("KM", "MK")
+    #
+    # grammar.add("LM", "ML")
+    #
+    # grammar.add("OL", "LO")
+    # grammar.add("OP", "PO")
+    # grammar.add("OM", "MO")
+    #
+    # grammar.add("aM", "aa")
+    # grammar.add("aL", "ad")
+    #
+    # grammar.add("dL", "dd")
+    # grammar.add("dP", "dbb")
+    # grammar.add("dK", "dbf")
+    #
+    # grammar.add("bP", "bb")
+    # grammar.add("bO", "bc")
+    #
+    # grammar.add("cO", "cc")
+    # grammar.add("cK", "cf")
+    #
+    # grammar.add("fK", "ff")
+    #
+    # grammar.enumerate(length=10)
+    #
+    # print(grammar)
+    #
+    # assert cfl.check_grammar(grammar, length=10)
+
 
     # grammar_case_1()
 
@@ -1583,37 +1849,37 @@ def main():
 
     # testing_turing_language()
 
-    x, y, i1, i0 = symbols("x y 1 0")
-    m, k, n = symbols("m k n")
-
-    cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
-                          conditions=[n >= 0, m >= 0])
-
-    planner = TuringPlanner(language=cfl, tapes=4)
-
-    planner.machine_plan = [
-        ParseAction(block=0, actions=[Copy(tapes=[1, 2]), Addition(tapes=[3])]),
-
-        ParseLoneSymbol(block=1),
-
-        ParseAction(block=2, actions=[Copy(tapes=[4]), Subtract(tapes=[3]), AllowNegative(tapes=[3])]),
-
-        AddTapes(source_tape=1, target_tape=4, symbol="1"),
-
-        SubtractTapes(source_tape=1, target_tape=4, symbol="1"),
-        SubtractTapes(source_tape=1, target_tape=4, symbol="1"),
-        SubtractTapes(source_tape=1, target_tape=4, symbol="1"),
-        SubtractTapes(source_tape=1, target_tape=4, symbol="1", allow_negative=True),
-        AddWithFactorTapes(source_tape=1, target_tape=4, symbol="1", multiplier=3),
-        AddWithFactorTapes(source_tape=1, target_tape=4, symbol="1", multiplier=-2),
-        AddWithFactorTapes(source_tape=1, target_tape=4, symbol="1", multiplier=-2, allow_negative=True)
-    ]
-
-    machine = MachineBuilder(planner=planner)
-
-    assert machine.turing.debug("11101111111")
-
+    # x, y, i1, i0 = symbols("x y 1 0")
+    # m, k, n = symbols("m k n")
+    #
+    # cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
+    #                       conditions=[n >= 0, m >= 0])
+    #
+    # planner = TuringPlanner(language=cfl, tapes=4)
+    #
+    # planner.machine_plan = [
+    #     ParseAction(block=0, actions=[Copy(tapes=[1, 2])]),
+    #
+    #     ParseLoneSymbol(block=1),
+    #
+    #     ParseAction(block=2, actions=[Subtract(tapes=[1, 2], symbol="1")]),
+    #
+    #     MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+    #
+    #     WipeTapes(tapes=[1, 2], symbol="1"),
+    #
+    #     AddTapes(target_tape=[1, 2], source_tape=0, symbol="1", stop="0"),
+    #
+    #     MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1")
+    # ]
+    #
+    # machine = MachineBuilder(planner=planner)
+    #
+    # assert machine.turing.debug("111101")
+    #
     # machine.info()
+
+    turing_function_case_2()
 
 
 main()

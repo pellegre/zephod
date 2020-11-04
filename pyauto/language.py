@@ -566,6 +566,7 @@ class LanguageFormula(Language):
         print("[+] symbol partition", self.symbols_partition)
         print("[+] condition partition", self.conditions_partition)
         print("[+] expression partition", self.expression_partition)
+        print("[+] minimal index", self._get_minimum_indices())
 
         if len(self.lone_symbols):
             print("[+] lone symbols", self.lone_symbols)
@@ -581,6 +582,12 @@ class LanguageFormula(Language):
     def get_index_space(self, length=5):
         space = ExponentSpace(sym=self.symbols, conditions=self.conditions, length=self.total_length)
         return space.get_space(length)
+
+    def _get_minimum_indices(self, constraints=None):
+        space = ExponentSpace(sym=self.symbols, conditions=self.conditions,
+                              length=self.total_length)
+
+        return space.get_minimal(constraints)
 
     def _generate_string(self, values):
         generated = str()

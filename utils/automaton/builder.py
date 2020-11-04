@@ -93,7 +93,7 @@ class MachineBuilder:
 
                 next_state = self.parsed_state
 
-            elif isinstance(plan, OperationPlan):
+            elif isinstance(plan, OperationPlan) or isinstance(plan, RewindLeft) or isinstance(plan, WipeTapes):
                 next_state = plan(self.transition, next_state)
 
             else:
