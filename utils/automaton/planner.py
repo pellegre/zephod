@@ -879,10 +879,11 @@ class AddWithFactorTapes(OperationPlan):
 
 
 class MultiplyTapes(OperationPlan):
-    def __init__(self, result, one_tape, other_tape, symbol="Z"):
+    def __init__(self, result, one_tape, other_tape, multiplier=1, symbol="Z"):
         super().__init__(source_tape=one_tape, target_tape=other_tape, symbol=symbol)
         self.result, self.one_tape, self.other_tape = result, one_tape, other_tape
         self.symbol = symbol
+        self.multiplier = multiplier
 
     def __str__(self):
         return "MultiplyTapes tape " + str(self.one_tape) + " and " + str(self.other_tape) + " in " + str(self.result)
@@ -932,12 +933,39 @@ class MultiplyTapes(OperationPlan):
         # -------- move to the left while writing
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
+        delta[C(result)] = A(Tape.BLANK, move=Stay())
 
         delta[C(one_tape)] = A(self.symbol, move=Stay())
-        delta[C(other_tape)] = A(self.symbol, move=Left())
+        delta[C(other_tape)] = A(self.symbol, move=Stay())
 
-        transition.add(left_state, left_state, delta)
+        state = transition.get_new_state(prefix=prefix, description="start multiplying C" +
+                                                                    str(self.other_tape) + " and C" +
+                                                                    str(self.one_tape) + " on " + C(result))
+
+        transition.add(left_state, state, delta)
+
+        for i in range(0, self.multiplier):
+            next_state = transition.get_new_state(prefix=prefix, description="multiplying with factor " + str(i + 1) +
+                                                                             " of " + str(self.multiplier) +
+                                                                             " on " + C(result))
+
+            # ---- go to left
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
+
+            delta[C(one_tape)] = A(self.symbol, move=Stay())
+
+            if i == self.multiplier - 1:
+                delta[C(other_tape)] = A(self.symbol, move=Left())
+
+                transition.add(state, left_state, delta)
+            else:
+                delta[C(other_tape)] = A(self.symbol, move=Stay())
+
+                transition.add(state, next_state, delta)
+
+            # swap states
+            state = next_state
 
         right_state = transition.get_new_state(prefix=prefix, description="moving right while multiplying C" +
                                                                           str(self.other_tape) + " and C" +
@@ -966,12 +994,39 @@ class MultiplyTapes(OperationPlan):
         # -------- move to the right while writing
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
+        delta[C(result)] = A(Tape.BLANK, move=Stay())
 
         delta[C(one_tape)] = A(self.symbol, move=Stay())
-        delta[C(other_tape)] = A(self.symbol, move=Right())
+        delta[C(other_tape)] = A(self.symbol, move=Stay())
 
-        transition.add(right_state, right_state, delta)
+        state = transition.get_new_state(prefix=prefix, description="start multiplying C" +
+                                                                    str(self.other_tape) + " and C" +
+                                                                    str(self.one_tape) + " on " + C(result))
+
+        transition.add(right_state, state, delta)
+
+        for i in range(0, self.multiplier):
+            next_state = transition.get_new_state(prefix=prefix, description="multiplying with factor " + str(i + 1) +
+                                                                             " of " + str(self.multiplier) +
+                                                                             " on " + C(result))
+
+            # ---- go to left
+            delta = transition.get_blank_delta()
+            delta[C(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
+
+            delta[C(one_tape)] = A(self.symbol, move=Stay())
+
+            if i == self.multiplier - 1:
+                delta[C(other_tape)] = A(self.symbol, move=Right())
+
+                transition.add(state, right_state, delta)
+            else:
+                delta[C(other_tape)] = A(self.symbol, move=Stay())
+
+                transition.add(state, next_state, delta)
+
+            # swap states
+            state = next_state
 
         # -------- hit blank, go back to initial multiplication state
 
@@ -1441,7 +1496,7 @@ class AutomaticPlanner(TuringPlanner):
 
                     for each in rest:
                         source_tape = self.symbol_tape[each]
-                        self.machine_plan.append(Addition(target_tape=target_tape, source_tape=source_tape))
+                        self.machine_plan.append(AddTapes(target_tape=target_tape, source_tape=source_tape))
 
                     self.symbol_tape[c.rhs] = target_tape
 
@@ -1451,7 +1506,7 @@ class AutomaticPlanner(TuringPlanner):
 
                     for each in rest:
                         source_tape = self.symbol_tape[each]
-                        self.machine_plan.append(Addition(target_tape=target_tape, source_tape=source_tape))
+                        self.machine_plan.append(AddTapes(target_tape=target_tape, source_tape=source_tape))
 
                     self.symbol_tape[c.lhs] = target_tape
 

@@ -2,6 +2,10 @@ from pyauto.language import *
 from pyauto.automata.finite import *
 from pyauto.automata.pushdown import *
 
+from utils.automaton.builder import *
+from utils.automaton.csg import *
+from utils.function import *
+
 
 def test_case_1(inp, plotter=False, run_grammar=False):
     transition = FADelta()
@@ -1633,6 +1637,1101 @@ def context_sensitive_grammar_19():
     assert cfl.check_grammar(grammar, length=10)
 
 
+def test_language_turing_machine_1():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
+                          conditions=[k >= 0, m >= 0, n >= 0])
+
+    cfl.info()
+
+    lang_machine = TuringParser(language=cfl)
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=25):
+        print("[+] testing string", data)
+
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+
+        assert read_status
+
+
+def test_language_turing_machine_2():
+    print("[+] FD ")
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
+                          conditions=[k >= 0, m >= 0, Eq(n, m)])
+
+    cfl.info()
+    lang_machine = TuringParser(language=cfl)
+
+    for data in cfl.enumerate_strings(length=25):
+        print("[+] testing string", data)
+
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_turing_machine_3():
+    a, e, b, c, aa, ccc, bb = symbols("a e b c aa ccc bb")
+    m, k, n, p, q = symbols("m k n p q")
+
+    cfl_with_ones = LanguageFormula(expression=[aa, aa ** k, aa ** q, e ** n, b, b ** k,
+                                                bb ** p, c ** k, ccc ** m, c ** n, b ** m],
+                                    conditions=[k >= 0, m >= 0, Eq(n, m + 1), Eq(p + 1, k), Eq(q, m)])
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, aa ** q, e ** n, b, b ** k,
+                                      bb ** p, c ** k, ccc ** m, c ** n, b ** m],
+                          conditions=[k >= 0, m >= 0, Eq(n, m), Eq(p, k), Eq(q, m)])
+
+    cfl.info()
+    difference = set(cfl_with_ones.enumerate_strings(length=25)).difference(cfl.enumerate_strings(length=25))
+
+    lang_machine = TuringParser(language=cfl)
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=25):
+        print("[+] testing string", data)
+
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+    for data in difference:
+        print("[+] testing string from ones language", data)
+
+        read_status = lang_machine.turing.read(data)
+
+        if read_status:
+            lang_machine.turing.debug(data)
+
+        assert not read_status
+
+
+def test_language_turing_machine_4():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl_with_null = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
+                                    conditions=[k >= 0, m >= 0, n >= 0])
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
+                          conditions=[k > 0, m > 0, n > 0])
+    cfl.info()
+
+    difference = set(cfl_with_null.enumerate_strings(length=25)).difference(cfl.enumerate_strings(length=25))
+
+    lang_machine = TuringParser(language=cfl)
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=25):
+        print("[+] testing string", data)
+
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+
+        assert read_status
+
+    for data in difference:
+        print("[+] testing string from nulled language", data)
+        read_status = lang_machine.turing.read(data)
+
+        if read_status:
+            lang_machine.turing.debug(data)
+
+        assert not read_status
+
+
+def test_language_turing_machine_5():
+    a, e, b, c, aa, ccc, ab, d, f = symbols("a e b c aa ccc ab d f")
+    m, k, n, q = symbols("m k n q")
+
+    cfl = LanguageFormula(expression=[e ** q, a ** k, e ** n, ab ** k, b ** k, c ** m, b ** m, ccc ** n, f ** q],
+                          conditions=[k > 0, q > 0, Eq(k + q, m + n)])
+    cfl.info()
+
+    print("\n[+] language machine")
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=10):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_turing_machine_6():
+    a, e, b, c, aa, ccc, ab, d, f = symbols("a e b c aa ccc ab d f")
+    m, k, n, q, r, s = symbols("m k n q r s")
+
+    cfl = LanguageFormula(expression=[e ** q, a ** k, e ** n, ab ** k, b ** r,
+                                      c ** m, b ** m, ccc ** n, f ** q, aa ** s],
+                          conditions=[k > 0, q > 0, Eq(k, m + n), Eq(r + s, q)])
+    cfl.info()
+
+    print("\n[+] language machine")
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=20):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_turing_machine_7():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** k, e ** n, c ** m],
+                          conditions=[k >= 0, m > 0, n < m])
+
+    cfl.info()
+
+    print(cfl.enumerate_strings(length=10))
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=10):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+    cfl = LanguageFormula(expression=[a ** k, e ** n, c ** m],
+                          conditions=[k >= 0, m > 0, n <= m])
+
+    cfl.info()
+
+    print(cfl.enumerate_strings(length=10))
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=10):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+    cfl = LanguageFormula(expression=[a ** k, e ** n, c ** m],
+                          conditions=[k >= 0, m > 0, n > m])
+
+    cfl.info()
+
+    print(cfl.enumerate_strings(length=10))
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=10):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+    cfl = LanguageFormula(expression=[a ** k, e ** n, c ** m],
+                          conditions=[k >= 0, m > 0, n >= m])
+
+    cfl.info()
+
+    print(cfl.enumerate_strings(length=10))
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=10):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_turing_machine_8():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** (2 * k + 1), e ** n, b ** (k + 2), c ** (k + 3 * m)],
+                          conditions=[k >= 0, m > 0, n < m])
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    for data in cfl.enumerate_strings(length=20):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_turing_machine_9():
+    n, j = symbols("n j")
+    ac, b, c, d = symbols("ac b c d")
+
+    lang = LanguageFormula(expression=[ac ** (n + 1), b ** j, c ** n, d ** j], conditions=[n >= 0, j > n])
+
+    print(lang.enumerate_strings(length=15))
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=20):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_turing_machine_10():
+    n, k, d = symbols("n k d")
+    a, d, b, c, f = symbols("a d b c f")
+
+    lang = LanguageFormula(expression=[a ** (k + n), d ** n, b ** (k + 1), c ** k, f ** d],
+                           conditions=[n >= 0, k >= 0, d < n, d >= 0])
+
+    print(lang.enumerate_strings(length=15))
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=20):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_turing_machine_11():
+    s, n, k = symbols("s n k")
+    a, d, b, e = symbols("a d b e")
+
+    lang = LanguageFormula(expression=[a ** (2 * n), d ** (s + 1), b ** k, e ** n],
+                           conditions=[s >= 0, n > 0, k > 0, ~Eq(n, k)])
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=20):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_union_turing_machine_12():
+    n, j, i = symbols("n j i")
+    aab, aba, ca, daa, eaa, a, b, c, d, e = symbols("aab aba ca daa eaa a b c d e")
+
+    lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i], conditions=[n > 0, j > n, i > 0])
+    lang_b = LanguageFormula(expression=[b ** n, a ** j, c ** (2 * n + 1), e ** i], conditions=[n > 0, j > n, i > 0])
+
+    lang = lang_a + lang_b
+
+    lang.info()
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=15):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_union_turing_machine_13():
+    n, j, i, r = symbols("n j i r")
+    aab, aba, ca, daa, eaa, a, b, c, d, e = symbols("aab aba ca daa eaa a b c d e")
+
+    lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j, a ** r, c ** r],
+                             conditions=[n > 0, j > n, i > 0, r >= 0])
+    lang_b = LanguageFormula(expression=[b ** n, a ** j, c ** (2 * n + 1), e ** i, c ** n, c ** i],
+                             conditions=[n > 0, j > n, i > 0])
+
+    lang = lang_a + lang_b
+
+    lang.info()
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=25):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+
+def test_language_union_turing_machine_14():
+    n, j, i, r = symbols("n j i r")
+    aab, aba, ca, daa, eaa, a, b, c, d, e = symbols("aab aba ca daa eaa a b c d e")
+
+    lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j, a ** r, c ** r],
+                             conditions=[n > 0, j > n, i > 0, r >= 0])
+    lang_b = LanguageFormula(expression=[b ** n, a ** j, c ** (2 * n), e ** i, c ** n, c ** i],
+                             conditions=[n > 0, j > n, i > 0])
+
+    lang = lang_a + lang_b
+
+    lang.info()
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=25):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+    lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j, a ** r, c ** r],
+                             conditions=[n > 0, j > n, i > 0, r >= 0])
+
+    lang_b = LanguageFormula(expression=[b ** n, a ** j, d ** (2 * n), e ** i, c ** n, c ** i],
+                             conditions=[n > 0, j > n, i > 0])
+
+    lang = lang_a + lang_b
+
+    lang.info()
+
+    lang_machine = TuringParser(language=lang)
+
+    lang_machine.info()
+
+    for data in lang.enumerate_strings(length=25):
+        print("[+] testing string", data)
+        read_status = lang_machine.turing.read(data)
+
+        if not read_status:
+            lang_machine.turing.debug(data)
+            lang_machine.info()
+
+        assert read_status
+
+    # lang_a = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j, a ** r, c ** r],
+    #                          conditions=[n > 0, j > n, i > 0, r >= 0])
+    #
+    # lang_b = LanguageFormula(expression=[b ** n, a ** j, c ** n, d ** i, c ** j],
+    #                          conditions=[n > 0, j > n, i > 0, r >= 0])
+    #
+    # lang = lang_a + lang_b
+    #
+    # lang.info()
+    #
+    # lang_machine = TuringParser(language=lang)
+    #
+    # lang_machine.info()
+    #
+    # for data in lang.enumerate_strings(length=25):
+    #     print("[+] testing string", data)
+    #     read_status = lang_machine.turing.read(data)
+    #
+    #     if not read_status:
+    #         lang_machine.turing.debug(data)
+    #         lang_machine.info()
+    #
+    #     assert read_status
+
+
+def test_planner_turing_machine_15():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    print("[+] parse lone symbol")
+
+    tester = PlanTester(plan=ParseLoneSymbol(block=0),
+                        language=LanguageFormula(expression=[ccc], conditions=[]))
+
+    assert tester.test({C(0): "ccc"}, word="ccc")
+    assert not tester.test({C(0): "cdc"}, word="ccc")
+
+    print("[+] parse accumulate test")
+
+    tester = PlanTester(plan=ParseAccumulate(block=0, tape=1),
+                        language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
+
+    assert tester.test({C(0): "aaaaaaa"}, word="a", checker=lambda i: i.tapes[C(1)].data() == "ZZZZZZZB0")
+
+    assert not tester.test({C(0): "aaaabaaa"}, word="a")
+
+    print("[+] parse equal test")
+
+    tester = PlanTester(plan=ParseEqual(block=0, tape=1),
+                        language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
+
+    assert tester.test({C(0): "aaa", C(1): "XZZZ"}, word="a")
+    assert tester.test({C(0): "ababab", C(1): "XZZZ"}, word="ab")
+    assert not tester.test({C(0): "ababab", C(1): "XZZ"}, word="ab")
+
+    tester = PlanTester(plan=AddTapes(source_tape=0, target_tape=1),
+                        language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
+
+    assert tester.test({C(0): "XZZZ", C(1): "XZZZ"}, checker=lambda i: i.tapes[C(1)].data() == "XZZZZZZB0")
+
+
+def test_planner_turing_machine_16():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** n],
+                          conditions=[k >= 0, n >= 0])
+
+    planner = TuringPlanner(language=cfl, tapes=2)
+
+    planner.add_plan(ParseLoneSymbol(block=0))
+    planner.add_plan(ParseAccumulate(block=1, tape=1))
+
+    planner.add_plan(ParseAccumulate(block=2, tape=2))
+
+    planner.add_plan(ParseLoneSymbol(block=3))
+    planner.add_plan(ParseEqual(block=4, tape=1))
+    planner.add_plan(ParseEqual(block=5, tape=1))
+
+    planner.add_plan(ParseEqual(block=6, tape=2))
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("aaeebcccccc")
+
+
+def testing_turing_language():
+    test_language_turing_machine_1()
+    test_language_turing_machine_2()
+    test_language_turing_machine_3()
+    test_language_turing_machine_4()
+    test_language_turing_machine_5()
+    test_language_turing_machine_6()
+    test_language_turing_machine_7()
+    test_language_turing_machine_8()
+    test_language_turing_machine_9()
+    test_language_turing_machine_10()
+    test_language_turing_machine_11()
+
+    test_language_union_turing_machine_12()
+    test_language_union_turing_machine_13()
+    test_language_union_turing_machine_14()
+
+    test_planner_turing_machine_15()
+    test_planner_turing_machine_16()
+
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** (2 * k + 2), e ** n, b ** (k + 1), c ** (k + 3 * m)],
+                          conditions=[k >= 0, m >= 0, n > m])
+
+    lang_machine = TuringParser(language=cfl)
+
+    lang_machine.info()
+
+    assert not lang_machine.turing.read("aaaaaaeeeeebccccc")  # it shouldn't detect it
+
+
+def test_grammar_tree_1():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[aa, a ** n, d ** j, x ** i, b ** n, w, c ** j, w ** i],
+                          conditions=[n > 0, i > 0, j > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    assert cfl.check_grammar(tree.grammar, length=15)
+
+
+def test_grammar_tree_2():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a, a ** n, d ** j, x ** i, b ** n, w, c ** j, w ** i, d ** n],
+                          conditions=[n > 0, i > 0, j > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    assert cfl.check_grammar(tree.grammar, length=10)
+
+
+def test_grammar_tree_3():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a, a ** n, d ** n],
+                          conditions=[n > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    assert cfl.check_grammar(tree.grammar, length=10)
+
+
+def test_grammar_tree_4():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a, a ** n, y ** j],
+                          conditions=[n > 0, j > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    assert cfl.check_grammar(tree.grammar, length=10)
+
+
+def test_grammar_tree_5():
+    a, b, c, d, w, x, y, aa = symbols("a b c d w x y aa")
+    m, n, i, j = symbols("m n i j")
+
+    cfl = LanguageFormula(expression=[a ** n, b, x ** i, b ** n, c ** n, w ** i, y ** i],
+                          conditions=[n > 0, i > 0])
+
+    tree = GrammarTree(language=cfl)
+
+    print("[+] non terminals", tree.generate_non_terminal())
+    print("[+] terminals", tree.generate_with_terminals())
+
+    tree.info()
+
+    print(tree.grammar.enumerate(length=15))
+    assert cfl.check_grammar(tree.grammar, length=15)
+
+
+def test_sentinel_grammar():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n, a ** n],
+                          conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "RX")
+
+    buffer.run_rule("R", "aRBC", times=3)
+    buffer.run_rule("R", "aB")
+
+    buffer.run_rule_until("CB", "BC")
+    buffer.run_rule_until("CX", "XC")
+
+    buffer.run_rule_until("aB", "ab")
+
+    buffer.run_rule_until("bB", "bb")
+    buffer.run_rule_until("bX", "ba")
+
+    buffer.run_rule_until("aC", "aa")
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def test_genesis_leafs():
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n, c ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "Z")
+    buffer.run_rule("Z", "aZBC", times=4)
+    buffer.run_rule("Z", "aBC")
+
+    buffer.run_rules_until([("CB", "BC")])
+
+    buffer.run_rule_until("aB", "ab")
+    buffer.run_rule_until("bB", "bb")
+
+    buffer.run_rule_until("bC", "bc")
+
+    buffer.run_rule_until("cC", "cc")
+
+    assert cfl.check_grammar(grammar, length=10)
+
+    a, b, c, d = symbols("a b c d")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[a ** n, b ** n], conditions=[n > 0])
+
+    grammar = OpenGrammar()
+
+    buffer = grammar.get_string()
+
+    buffer.run_rule("S", "Z")
+    buffer.run_rule("Z", "aZB", times=4)
+    buffer.run_rule("Z", "aB")
+
+    buffer.run_rule_until("aB", "ab")
+    buffer.run_rule_until("bB", "bb")
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def grammar_case_1():
+    a, b, c, d, w, x, y, aa, f = symbols("a b c d w x y aa f")
+    m, n, i, j, k = symbols("m n i j k")
+
+    cfl = LanguageFormula(expression=[a ** k, d ** n, b, b ** k, c ** k, f ** d],
+                          conditions=[k >= 0, d < n, d >= 0])
+
+    cfl.info()
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "RN")
+    grammar.add("S", "J")
+    grammar.add("S", "K")
+
+    grammar.add("R", "aRPO")
+    grammar.add("R", "aPO")
+
+    grammar.add("OP", "PO")
+
+    grammar.add("K", "dK")
+
+    grammar.add("J", "dJL")
+    grammar.add("J", "JM")
+    grammar.add("J", "M")
+
+    grammar.add("N", "MNL")
+    grammar.add("N", "NM")
+    grammar.add("N", "M")
+
+    grammar.add("PM", "MP")
+    grammar.add("OM", "MO")
+
+    grammar.add("aM", "ad")
+
+    grammar.add("dM", "dd")
+    grammar.add("dP", "dbb")
+    grammar.add("dL", "dbf")
+    grammar.add("dK", "db")
+
+    grammar.add("bP", "bb")
+    grammar.add("bO", "bc")
+    grammar.add("bL", "bf")
+
+    grammar.add("cO", "cc")
+    grammar.add("cL", "cf")
+
+    grammar.add("fL", "ff")
+
+    print(grammar)
+    print(grammar.enumerate(length=10))
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def grammar_case_2():
+    a, b, c, d, w, x, y, aa, f = symbols("a b c d w x y aa f")
+    m, n, i, j, k = symbols("m n i j k")
+
+    lang_a = LanguageFormula(expression=[a ** k, d ** n, b, b ** k, c ** k, f ** d],
+                             conditions=[n > 0, k >= 0, d < n, d >= 0])
+
+    lang_b = LanguageFormula(expression=[a ** k, b, b ** k, c ** k],
+                             conditions=[k >= 0])
+
+    cfl = lang_a + lang_b
+
+    cfl.info()
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "RN")
+    grammar.add("S", "RT")
+    grammar.add("S", "R")
+    grammar.add("S", "J")
+    grammar.add("S", "K")
+
+    grammar.add("S", "b")
+
+    grammar.add("R", "aRPO")
+    grammar.add("R", "aPO")
+
+    grammar.add("OP", "PO")
+
+    grammar.add("K", "dK")
+
+    grammar.add("J", "dJL")
+    grammar.add("JL", "TL")
+
+    grammar.add("N", "MNL")
+    grammar.add("NL", "TL")
+
+    grammar.add("T", "TM")
+    grammar.add("T", "M")
+
+    grammar.add("PM", "MP")
+    grammar.add("OM", "MO")
+
+    grammar.add("aM", "ad")
+    grammar.add("aP", "abb")
+
+    grammar.add("dM", "dd")
+    grammar.add("dP", "dbb")
+    grammar.add("dL", "dbf")
+    grammar.add("dK", "db")
+
+    grammar.add("bP", "bb")
+    grammar.add("bO", "bc")
+    grammar.add("bL", "bf")
+
+    grammar.add("cO", "cc")
+    grammar.add("cL", "cf")
+
+    grammar.add("fL", "ff")
+
+    print(grammar)
+    print(grammar.enumerate(length=15))
+
+    grammar.print_stack("aaadddbbbbcccff")
+    grammar.print_stack("ddddddddbffffff")
+    grammar.print_stack("dddddddddb")
+    grammar.print_stack("aaaadbbbbbcccc")
+    grammar.print_stack("aaaabbbbbcccc")
+
+    assert cfl.check_grammar(grammar, length=15)
+
+
+def grammar_case_3():
+    a, b, c, d, w, x, y, aa, f, e, ccc = symbols("a b c d w x y aa f e ccc")
+    m, n, i, j, k = symbols("m n i j k")
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
+                          conditions=[k >= 0, m >= 0, m < n])
+
+    grammar = OpenGrammar()
+
+    grammar.add("S", "aaRN")
+    grammar.add("S", "aaRT")
+    grammar.add("S", "aaN")
+    grammar.add("S", "aaJ")
+
+    grammar.add("R", "RQPO")
+    grammar.add("R", "QPO")
+
+    grammar.add("OQ", "QO")
+    grammar.add("OP", "PO")
+    grammar.add("PQ", "QP")
+    grammar.add("PM", "MP")
+    grammar.add("OM", "MO")
+
+    grammar.add("N", "MNL")
+    grammar.add("NL", "TL")
+
+    grammar.add("J", "eJ")
+
+    grammar.add("T", "TM")
+    grammar.add("T", "M")
+
+    grammar.add("aaQ", "aaaa")
+    grammar.add("aaM", "aae")
+    grammar.add("aaP", "aabb")
+
+    grammar.add("eM", "ee")
+    grammar.add("eP", "ebb")
+    grammar.add("eL", "ebccc")
+
+    grammar.add("eJ", "eb")
+
+    grammar.add("bP", "bb")
+    grammar.add("bO", "bc")
+
+    grammar.add("cO", "cc")
+    grammar.add("cL", "cccc")
+    grammar.add("cccL", "cccccc")
+
+    print(grammar)
+
+    print(grammar.enumerate(length=15))
+
+    grammar.print_stack("aaeeeeebcccccc")
+    grammar.print_stack("aaeeeeeeeeeeeb")
+    grammar.print_stack("aaaaaaeebbbcc")
+    grammar.print_stack("aaaaaaeeebbbcccccccc")
+
+    assert cfl.check_grammar(grammar, length=10)
+
+
+def turing_case_1():
+    a, e, b, c, aa, ccc = symbols("a e b c aa ccc")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
+                          conditions=[k >= 0, m >= 0, m < n])
+
+    planner = TuringPlanner(language=cfl, tapes=2)
+
+    planner.add_plan(ParseLoneSymbol(block=0))
+    planner.add_plan(ParseAccumulate(block=1, tape=1))
+
+    planner.add_plan(ParseAccumulate(block=2, tape=2))
+
+    planner.add_plan(ParseLoneSymbol(block=3))
+
+    planner.add_plan(ParseEqual(block=4, tape=1))
+    planner.add_plan(ParseEqual(block=5, tape=1))
+
+    planner.add_plan(ParseStrictLessEqual(block=6, tape=2))
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("aaaaeeeeebbccccccc")
+
+    for data in cfl.enumerate_strings(length=22):
+        print("[+] testing string", data)
+        read_status = machine.turing.read(data)
+
+        if not read_status:
+            machine.turing.debug(data)
+            machine.info()
+
+        assert read_status
+
+    machine.info()
+
+
+def turing_function_case_1():
+    x, y, i1, i0 = symbols("x y 1 0")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
+                          conditions=[n >= 0, m >= 0])
+
+    planner = TuringPlanner(language=cfl, tapes=4)
+
+    planner.machine_plan = [
+        ParseAction(block=0, actions=[Copy(tapes=[1, 2])]),
+
+        ParseLoneSymbol(block=1),
+
+        ParseAction(block=2, actions=[Subtract(tapes=[1, 2], symbol="1")]),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+
+        AddWithFactorTapes(target_tape=4, source_tape=3, multiplier=3, symbol="1"),
+
+        WipeTapes(tapes=[1, 2], symbol="1"),
+
+        AddTapes(target_tape=[1, 2], source_tape=0, symbol="1", stop="0"),
+
+        MultiplyTapes(result=4, one_tape=1, other_tape=2, symbol="1")
+    ]
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("111110111")
+
+    machine.info()
+
+    TuringPlotter.to_csv("function.csv", machine.turing)
+
+
+def turing_function_case_2():
+    x, y, i1, i0 = symbols("x y 1 0")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
+                          conditions=[n >= 0, m >= 0])
+
+    planner = TuringPlanner(language=cfl, tapes=3)
+
+    planner.machine_plan = [
+        ParseAction(block=0, actions=[Copy(tapes=[1, 2])]),
+
+        ParseLoneSymbol(block=1),
+
+        ParseAction(block=2, actions=[Subtract(tapes=[1, 2], symbol="1")]),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+
+        WipeTapes(tapes=[1, 2], symbol="1"),
+
+        AddTapes(target_tape=[1, 2], source_tape=0, symbol="1", stop="0"),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1")
+    ]
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("111110111")
+
+    machine.info()
+
+
+def turing_function_case_3():
+    x, y, i1, i0 = symbols("x y 1 0")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
+                          conditions=[n >= 0, m > 0])
+
+    planner = TuringPlanner(language=cfl, tapes=3)
+
+    planner.machine_plan = [
+        ParseAction(block=0, actions=[Copy(tapes=[1, 2])]),
+
+        ParseLoneSymbol(block=1),
+
+        ParseAction(block=2, actions=[Subtract(tapes=[1, 2], symbol="1")]),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1", multiplier=3),
+
+        WipeTapes(tapes=[1, 2], symbol="1"),
+
+        AddTapes(target_tape=[1, 2], source_tape=0, symbol="1", stop="0"),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1")
+    ]
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("111110111")
+
+    machine.info()
+
+    TuringPlotter.to_csv("function.csv", machine.turing)
+
+
+def turing_function_case_4():
+    x, y, i1, i0 = symbols("x y 1 0")
+    m, k, n = symbols("m k n")
+
+    cfl = LanguageFormula(expression=[i1 ** n, i0, i1 ** m],
+                          conditions=[n >= 0, m >= 0])
+
+    planner = TuringPlanner(language=cfl, tapes=4)
+
+    planner.machine_plan = [
+        ParseAction(block=0, actions=[Copy(tapes=[1, 2])]),
+
+        ParseLoneSymbol(block=1),
+
+        ParseAction(block=2, actions=[Subtract(tapes=[1, 2], symbol="1")]),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1"),
+
+        WipeTapes(tapes=[1, 2], symbol="1"),
+
+        AddTapes(target_tape=[1, 2], source_tape=0, symbol="1", stop="0"),
+
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1")
+    ]
+
+    machine = MachineBuilder(planner=planner)
+
+    assert machine.turing.debug("111101")
+
+
 def run_cases():
     print("[+] running test case 1")
     assert test_case_1("00111011110", run_grammar=True)
@@ -1774,6 +2873,22 @@ def run_cases():
     context_sensitive_grammar_16()
     context_sensitive_grammar_17()
     context_sensitive_grammar_18()
+
+    print("[+] running turing machine builder test")
+    testing_turing_language()
+
+    print("[+] testing CSG")
+    test_grammar_tree_1()
+    test_grammar_tree_2()
+    test_grammar_tree_3()
+    test_grammar_tree_4()
+    test_grammar_tree_5()
+
+    print("[+] testing turing machine function")
+    turing_function_case_1()
+    turing_function_case_2()
+    turing_function_case_3()
+    turing_function_case_4()
 
 
 run_cases()
