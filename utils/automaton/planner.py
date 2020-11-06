@@ -938,12 +938,7 @@ class MultiplyTapes(OperationPlan):
         delta[C(one_tape)] = A(self.symbol, move=Stay())
         delta[C(other_tape)] = A(self.symbol, move=Stay())
 
-        state = transition.get_new_state(prefix=prefix, description="start multiplying C" +
-                                                                    str(self.other_tape) + " and C" +
-                                                                    str(self.one_tape) + " on " + C(result))
-
-        transition.add(left_state, state, delta)
-
+        state = left_state
         for i in range(0, self.multiplier):
             next_state = transition.get_new_state(prefix=prefix, description="multiplying with factor " + str(i + 1) +
                                                                              " of " + str(self.multiplier) +
@@ -999,12 +994,7 @@ class MultiplyTapes(OperationPlan):
         delta[C(one_tape)] = A(self.symbol, move=Stay())
         delta[C(other_tape)] = A(self.symbol, move=Stay())
 
-        state = transition.get_new_state(prefix=prefix, description="start multiplying C" +
-                                                                    str(self.other_tape) + " and C" +
-                                                                    str(self.one_tape) + " on " + C(result))
-
-        transition.add(right_state, state, delta)
-
+        state = right_state
         for i in range(0, self.multiplier):
             next_state = transition.get_new_state(prefix=prefix, description="multiplying with factor " + str(i + 1) +
                                                                              " of " + str(self.multiplier) +
