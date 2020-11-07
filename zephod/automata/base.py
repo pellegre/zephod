@@ -1,6 +1,6 @@
 from networkx.drawing.nx_agraph import to_agraph
-from pyauto.delta import *
-from pyauto.tape import *
+from zephod.automata.delta import *
+from zephod.automata.tape import *
 
 import networkx
 import shutil

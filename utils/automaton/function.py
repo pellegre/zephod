@@ -1,4 +1,4 @@
-from pyauto.automata.turing import *
+from zephod.turing import *
 import itertools
 
 

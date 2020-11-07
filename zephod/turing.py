@@ -1,13 +1,5 @@
-from pyauto.delta import *
-from pyauto.automata.base import *
-from pyauto.tape import *
-
-from sympy.logic.boolalg import *
-from sympy.assumptions.refine import *
-
-from functools import reduce
-
-from itertools import product
+from zephod.automata.base import *
+from zephod.automata.tape import *
 
 
 import shutil
@@ -77,19 +69,6 @@ class TuringDelta(Delta):
     def __init__(self, tapes=None):
         super().__init__()
         self.tapes = tapes
-
-        # state management
-        self.state_counter = 0
-        self.state_description = {}
-
-    def get_new_state(self, prefix, description):
-        self.state_counter += 1
-
-        new_state = State(prefix + str(self.state_counter))
-
-        self.state_description[new_state] = description
-
-        return new_state
 
     def get_blank_delta(self):
         return {C(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, self.tapes)}

@@ -1,9 +1,7 @@
-import networkx
-import matplotlib.pyplot as plt
-
 from utils.automaton.builder import *
-from utils.function import *
-from networkx import DiGraph
+from utils.automaton.function import *
+
+from sympy import sieve
 
 
 def nfsm_example():
@@ -247,8 +245,126 @@ def ll1_grammar():
     print(lang1.difference(lang2))
 
 
+def get_binary_input(n):
+    binary = "{0:0100b}".format(n)
+    stack = [c for c in binary[binary.find('1'):][::-1]]
+
+    return stack
+
+
+counter = 0
+
+
+def state_factorization(initial, transition, n):
+    prime_state = State("ip0")
+
+    def get_new_state():
+        global counter
+        counter += 1
+        return State("z" + str(counter))
+
+    if n in sieve:
+        stack, state = get_binary_input(n), initial
+        for i, b in enumerate(stack):
+            current_state = get_new_state()
+
+            if i == 0:
+                transition.add(state, current_state, b)
+            elif i == len(stack) - 1:
+                transition.add(state, prime_state, b)
+            else:
+                transition.add(state, current_state, b)
+
+            print(n, state, current_state, b)
+
+            state = current_state
+
+
+def prime_machine_builder(initial, transition, m, n):
+    for i in range(m, n):
+        state_factorization(initial, transition, i)
+
+
+def prime_machine():
+    initial = State("ie0")
+    prime_state = State("ip0")
+
+    transition = FADelta()
+    final = {prime_state}
+
+    prime_machine_builder(initial, transition, 1, 100)
+
+    nfsm = FiniteAutomata(transition=transition, initial=initial, final=final)
+
+    nfsm.minimal().debug(get_binary_input(15))
+
+    print("[+] number of states (NDFA)", len(nfsm.transition.states))
+
+    dfa = nfsm.get_deterministic_automata()
+    print("[+] number of states (DFA)", len(dfa.transition.states))
+
+    minimal = dfa.minimal()
+    print("[+] number of states (minimal)", len(minimal.transition.states))
+
+    final = minimal.final
+    final.add(prime_state)
+
+    initial = minimal.initial
+
+    transition = minimal.transition
+
+    prime_machine_builder(initial, transition, 100, 102)
+
+    nfsm = FiniteAutomata(transition=transition, initial=initial, final=final)
+
+    print(nfsm.state_power_set)
+
+    AutomataPlotter.plot(nfsm)
+
+
 def main():
     print("[+] FD ")
+    initial = State("ie0")
+    prime_state = State("ip0")
+
+    transition = FADelta()
+    final = {prime_state}
+
+    for j in range(0, 100):
+        prime_machine_builder(initial, transition, j * 1000 + 1, (j + 1) * 1000)
+
+        nfsm = FiniteAutomata(transition=transition, initial=initial, final=final)
+
+        minimal = nfsm.minimal()
+
+        final = minimal.final
+        final.add(prime_state)
+
+        initial = minimal.initial
+
+        transition = minimal.transition
+
+    AutomataPlotter.plot(minimal)
+    print("[+] number of states", len(minimal.transition.states))
+
+    count = 0
+    for i in range(2, 100000):
+        if i in sieve:
+            assert minimal.read(get_binary_input(i))
+            count += 1
+        else:
+            assert not minimal.read(get_binary_input(i))
+
+    print("[+] prime count", count)
+    # print(minimal)
+    #
+    # g = Grammar.build_from_finite_automata(minimal)
+    # print(g)
+    # for each in sorted([int(str(num)[::-1]) for num in g.enumerate(length=11) if len(num)]):
+    #     print("generated prime", each)
+
+    #
+    # AutomataPlotter.plot(nfsm.minimal())
 
 
-main()
+prime_machine()

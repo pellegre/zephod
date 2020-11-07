@@ -1,4 +1,4 @@
-from pyauto.automata.pushdown import *
+from zephod.pushdown import *
 
 
 import networkx
@@ -101,18 +101,22 @@ class FADelta(Delta):
         for s in symbols:
             if s is Transition.NULL:
                 transition = FANullTransition(source=source, target=target)
-                self.transitions[source].append(transition)
 
             elif isinstance(s, str) and len(s) == 1:
                 transition = FAReadTransition(character=s, source=source, target=target)
-                self.transitions[source].append(transition)
 
             elif isinstance(s, FiniteAutomata):
                 transition = FDATransition(fda=s.minimal(), source=source, target=target)
-                self.transitions[source].append(transition)
 
             else:
                 raise RuntimeError("can't interpret symbol", s)
+
+            if source in self.transitions:
+                if any([transition == t for t in self.transitions[transition.source]]):
+                    print("[+] skipping repeated transition", transition)
+                    return None
+
+            self.transitions[source].append(transition)
 
             transition_symbols.append(transition.symbol())
             self.alphabet.add(transition.symbol())
@@ -297,19 +301,14 @@ class FiniteAutomata(Automata):
         for state in filter(lambda s: s not in self.final, self.g.nodes):
             reach_final = False
             for final in self.final:
-                try:
-                    networkx.dijkstra_path(self.g, state, final)
+                if networkx.has_path(self.g, state, final):
                     reach_final = True
-                except networkx.exception.NetworkXNoPath:
-                    continue
 
             if not reach_final:
                 states_to_remove.add(state)
 
         for state in self.g:
-            try:
-                networkx.dijkstra_path(self.g, self.initial, state)
-            except networkx.exception.NetworkXNoPath:
+            if not networkx.has_path(self.g, self.initial, state):
                 states_to_remove.add(state)
 
         final = self.final.copy()
@@ -339,11 +338,8 @@ class FiniteAutomata(Automata):
         for state in filter(lambda s: s not in self.final, list(g.nodes)):
             reach_final = False
             for final in self.final:
-                try:
-                    networkx.dijkstra_path(g, state, final)
+                if networkx.has_path(g, state, final):
                     reach_final = True
-                except networkx.exception.NetworkXNoPath:
-                    continue
 
             if not reach_final:
                 g.remove_node(state)
@@ -351,8 +347,7 @@ class FiniteAutomata(Automata):
         pi_next, pi_current, pi_global = [{e for e in g.nodes if e not in self.final}, self.final], [], []
 
         step_number = 0
-        while not(set(sorted([tuple(sorted(p)) for p in pi_global])) ==
-                  set(sorted([tuple(sorted(p)) for p in pi_next]))):
+        while not(set([tuple(sorted(p)) for p in pi_global]) == set([tuple(sorted(p)) for p in pi_next])):
 
             pi_global = copy.deepcopy(pi_next)
             self.minimization_steps[step_number] = {"pi": pi_next, "delta": {}}
@@ -480,9 +475,7 @@ class FiniteAutomata(Automata):
                             self._add_edge_to_graph(g, p, q, symbol)
 
         for state in list(g.nodes):
-            try:
-                networkx.dijkstra_path(g, self.initial, state)
-            except networkx.exception.NetworkXNoPath:
+            if not networkx.has_path(g, self.initial, state):
                 g.remove_node(state)
                 if state in final:
                     final.remove(state)

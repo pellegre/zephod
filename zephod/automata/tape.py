@@ -226,7 +226,7 @@ class TapeAction:
         return False
 
     def __str__(self):
-        output = "(on = " + self.on_symbol + ")"
+        output = "(on = " + str(self.on_symbol) + ")"
         return output
 
 

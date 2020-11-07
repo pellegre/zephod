@@ -1,10 +1,6 @@
-from pyauto.language import *
-from pyauto.automata.finite import *
-from pyauto.automata.pushdown import *
-
 from utils.automaton.builder import *
 from utils.automaton.csg import *
-from utils.function import *
+from utils.language.regular import *
 
 
 def test_case_1(inp, plotter=False, run_grammar=False):
@@ -51,7 +47,7 @@ def test_case_1(inp, plotter=False, run_grammar=False):
     assert pda_value == nfsm_value
 
     if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
+        grammar_from_fda = GrammarBase.build_from_finite_automata(nfsm)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -89,7 +85,7 @@ def test_case_2(inp, plotter=False, run_grammar=False):
     assert pda_value == nfsm_value
 
     if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(stripped)
+        grammar_from_fda = GrammarBase.build_from_finite_automata(stripped)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -127,30 +123,6 @@ def test_case_4(inp, plotter=False, run_grammar=False):
     return expr_value
 
 
-def test_case_5(inp, plotter=False, run_grammar=False):
-    expr = FiniteAutomataBuilder.get_finite_automata_from_csv("./csv/zuto.csv")
-    assert not expr.has_null_transitions()
-
-    expr_value = expr.read(inp)
-
-    dfsm = expr.get_deterministic_automata()
-    assert not dfsm.is_non_deterministic()
-
-    minimized = dfsm.minimize_automata()
-    assert minimized.read(inp) == expr_value
-
-    if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
-
-        for each in grammar_from_fda.enumerate(length=8):
-            assert minimized.read(each)
-
-    if plotter:
-        AutomataPlotter.plot(expr)
-
-    return expr_value
-
-
 def test_case_9(inp, plotter=False, run_grammar=False):
     expr = Z("00") + (~Z("0") | Z("1"))
     assert expr.has_null_transitions()
@@ -169,7 +141,7 @@ def test_case_9(inp, plotter=False, run_grammar=False):
     assert pda_value == expr_value
 
     if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+        grammar_from_fda = GrammarBase.build_from_finite_automata(minimized)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -196,7 +168,7 @@ def test_case_11(inp, plotter=False, run_grammar=False):
     nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
 
     if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
+        grammar_from_fda = GrammarBase.build_from_finite_automata(nfsm)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert nfsm.read(each)
@@ -246,7 +218,7 @@ def test_case_12(inp, plotter=False, run_grammar=False):
     assert pda_value == expr_value
 
     if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+        grammar_from_fda = GrammarBase.build_from_finite_automata(minimized)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -272,7 +244,7 @@ def test_case_13(inp, plotter=False, run_grammar=False):
     assert minimized.read(inp) == expr_value
 
     if run_grammar:
-        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+        grammar_from_fda = GrammarBase.build_from_finite_automata(minimized)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -287,7 +259,7 @@ def test_case_13(inp, plotter=False, run_grammar=False):
 
 
 def test_case_14(plotter=False, run_grammar=False):
-    g = Grammar(terminal={"0", "1"}, non_terminal={"A", "B", "C"})
+    g = GrammarBase(terminal={"0", "1"}, non_terminal={"A", "B", "C"})
 
     g.add("S", "0A")
     g.add("S", "1B")
@@ -307,7 +279,7 @@ def test_case_14(plotter=False, run_grammar=False):
     for each in g.enumerate(length=10):
         assert fda.read(each)
 
-    grammar_from_fda = Grammar.build_from_finite_automata(fda)
+    grammar_from_fda = GrammarBase.build_from_finite_automata(fda)
 
     for each in grammar_from_fda.enumerate(length=10):
         assert fda.read(each)
@@ -329,7 +301,7 @@ def test_case_15(plotter=False):
     minimized = dfsm.minimize_automata()
     assert minimized.read("") == expr_value
 
-    grammar_from_fda = Grammar.build_from_finite_automata(minimized)
+    grammar_from_fda = GrammarBase.build_from_finite_automata(minimized)
 
     got_null_string = False
 
@@ -382,7 +354,7 @@ def test_case_16():
 
     fda = FiniteAutomata(transition, initial="z0", final={"z0", "z1", "z2", "z3"})
 
-    grammar_from_fda = Grammar.build_from_finite_automata(expr)
+    grammar_from_fda = GrammarBase.build_from_finite_automata(expr)
 
     for each in grammar_from_fda.enumerate(length=10):
         assert fda.read(each)
@@ -525,7 +497,7 @@ def test_constraints():
 
 
 def test_pda_case_1():
-    grammar = Grammar(non_terminal={"A"}, terminal={"a", "b", "c"})
+    grammar = GrammarBase(non_terminal={"A"}, terminal={"a", "b", "c"})
     grammar.add("S", "A")
     grammar.add("A", "aAa")
     grammar.add("A", "bAb")
@@ -789,7 +761,7 @@ def test_case_1_flang():
     lang = LanguageFormula(expression=[a**n, b**n, c**n], conditions=[n > 0])
     print(lang.enumerate_strings(length=9))
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "A")
 
@@ -813,7 +785,7 @@ def test_case_2_flang():
 
     print(lang.enumerate_strings(length=15))
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "A")
 
@@ -840,7 +812,7 @@ def context_sensitive_grammar_1():
 
     cfl = LanguageFormula(expression=[a ** n], conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "Z")
 
@@ -856,7 +828,7 @@ def context_sensitive_grammar_2():
 
     cfl = LanguageFormula(expression=[a ** n, b ** n], conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "Z")
 
@@ -874,7 +846,7 @@ def context_sensitive_grammar_3():
 
     cfl = LanguageFormula(expression=[a ** n, b ** n, c ** n], conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "Z")
 
@@ -899,7 +871,7 @@ def context_sensitive_grammar_4():
 
     cfl = LanguageFormula(expression=[a ** n, b ** n, ccc ** n], conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "Z")
 
@@ -924,7 +896,7 @@ def context_sensitive_grammar_5():
 
     cfl = LanguageFormula(expression=[a ** n, b ** n, c ** n, d ** n], conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -955,7 +927,7 @@ def context_sensitive_grammar_6():
 
     cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** n], conditions=[n >= 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -988,7 +960,7 @@ def context_sensitive_grammar_7():
 
     cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** n], conditions=[n > 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1025,7 +997,7 @@ def context_sensitive_grammar_8():
 
     cfl = LanguageFormula(expression=[a ** m, b ** n, c ** n, d ** m], conditions=[n > 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1081,7 +1053,7 @@ def context_sensitive_grammar_9():
 
     cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** n], conditions=[n > 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1134,7 +1106,7 @@ def context_sensitive_grammar_10():
 
     cfl = LanguageFormula(expression=[a ** n, b ** m, c ** n, d ** m], conditions=[n > 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1172,7 +1144,7 @@ def context_sensitive_grammar_11():
 
     cfl = LanguageFormula(expression=[a ** n, b ** m, c ** m, d ** m], conditions=[n > 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1211,7 +1183,7 @@ def context_sensitive_grammar_12():
 
     cfl = LanguageFormula(expression=[a ** m, b ** m, c ** m, d ** n], conditions=[n > 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1251,7 +1223,7 @@ def context_sensitive_grammar_13():
 
     cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** m], conditions=[n > 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1289,7 +1261,7 @@ def context_sensitive_grammar_14():
 
     cfl = LanguageFormula(expression=[a ** m, b ** m, c ** n, d ** m], conditions=[n >= 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1333,7 +1305,7 @@ def context_sensitive_grammar_15():
 
     cfl = LanguageFormula(expression=[a ** m, b ** n, c ** m], conditions=[n >= 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1365,7 +1337,7 @@ def context_sensitive_grammar_15():
 
     cfl = LanguageFormula(expression=[x ** j, y ** j, w ** i], conditions=[i >= 0, j > i])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1402,7 +1374,7 @@ def context_sensitive_grammar_16():
     cfl = LanguageFormula(expression=[a ** m, x ** j, b ** n, c ** m, y ** j, w ** i],
                           conditions=[n > 0, m > n, i > 0, j > i])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1462,7 +1434,7 @@ def context_sensitive_grammar_17():
 
     cfl = LanguageFormula(expression=[a ** m, b, b ** m, cc, c ** n, d ** m], conditions=[n >= 0, m > n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1505,7 +1477,7 @@ def context_sensitive_grammar_18():
     cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, c ** m],
                           conditions=[m >= 0, k >= 0, n > m])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -1615,7 +1587,7 @@ def context_sensitive_grammar_19():
     cfl = LanguageFormula(expression=[a ** n, b ** n, a ** n],
                           conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -2307,7 +2279,7 @@ def test_sentinel_grammar():
     cfl = LanguageFormula(expression=[a ** n, b ** n, a ** n],
                           conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -2335,7 +2307,7 @@ def test_genesis_leafs():
 
     cfl = LanguageFormula(expression=[a ** n, b ** n, c ** n], conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -2359,7 +2331,7 @@ def test_genesis_leafs():
 
     cfl = LanguageFormula(expression=[a ** n, b ** n], conditions=[n > 0])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     buffer = grammar.get_string()
 
@@ -2382,7 +2354,7 @@ def grammar_case_1():
 
     cfl.info()
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "RN")
     grammar.add("S", "J")
@@ -2442,7 +2414,7 @@ def grammar_case_2():
 
     cfl.info()
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "RN")
     grammar.add("S", "RT")
@@ -2507,7 +2479,7 @@ def grammar_case_3():
     cfl = LanguageFormula(expression=[aa, aa ** k, e ** n, b, b ** k, c ** k, ccc ** m],
                           conditions=[k >= 0, m >= 0, m < n])
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "aaRN")
     grammar.add("S", "aaRT")
@@ -2724,12 +2696,14 @@ def turing_function_case_4():
 
         AddTapes(target_tape=[1, 2], source_tape=0, symbol="1", stop="0"),
 
-        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1")
+        MultiplyTapes(result=3, one_tape=1, other_tape=2, symbol="1", multiplier=3)
     ]
 
     machine = MachineBuilder(planner=planner)
 
-    assert machine.turing.debug("111101")
+    machine.info()
+
+    assert machine.turing.debug("1111111101111")
 
 
 def run_cases():
@@ -2766,22 +2740,6 @@ def run_cases():
     assert test_case_4("00001")
     assert test_case_4("0000001")
     assert not test_case_4("1111")
-
-    print("[+] running test case 5")
-    assert test_case_5("badddcbdb", run_grammar=True)
-    assert test_case_5("ddb")
-    assert test_case_5("ddddb")
-    assert test_case_5("b")
-    assert test_case_5("bdd")
-    assert test_case_5("bbddb")
-    assert test_case_5("bdbdb")
-    assert not test_case_5("")
-    assert not test_case_5("dd")
-    assert not test_case_5("dddb")
-    assert not test_case_5("ddbaddc")
-    assert not test_case_5("baddc")
-    assert not test_case_5("baddcdd")
-    assert test_case_5("bddcdd")
 
     print("[+] running test case 9")
     assert test_case_9("1", run_grammar=True)

@@ -1,6 +1,5 @@
-from pyauto.delta import *
-from pyauto.automata.base import *
-from pyauto.tape import *
+from zephod.automata.base import *
+from zephod.automata.tape import *
 
 import shutil
 
@@ -95,19 +94,21 @@ class PDADelta(Delta):
                 if symbol is Transition.NULL:
                     transition = PDANullTransition(source=source, target=target,
                                                    stack_action=stack_action)
-                    self.transitions[source].append(transition)
-
                 else:
                     transition = PDAReadTransition(source=source, target=target, character=symbol,
                                                    stack_action=stack_action)
-                    self.transitions[source].append(transition)
-
                     self.alphabet.add(symbol)
             else:
                 raise RuntimeError("can't handle transition " + str(transition))
 
-            transition_symbols.append(transition.symbol())
+            if source in self.transitions:
+                if any([transition == t for t in self.transitions[transition.source]]):
+                    print("[+] skipping repeated transition", transition)
+                    return None
 
+            self.transitions[source].append(transition)
+
+            transition_symbols.append(transition.symbol())
             self.stack_alphabet.add(stack_symbol)
 
         return transition_symbols

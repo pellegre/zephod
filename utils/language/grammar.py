@@ -1,11 +1,7 @@
-from pyauto.automata.finite import *
-
-import functools
-
-import string
+from zephod.finite import *
 
 
-class Grammar:
+class GrammarBase:
     NULL = "$"
 
     @staticmethod
@@ -21,20 +17,21 @@ class Grammar:
         for node in g.nodes:
             if node == automata.initial:
                 if len(g.in_edges(node)) > 0:
-                    networkx.set_node_attributes(g, {node: Grammar.get_non_terminal_from_counter(counter)},
+                    networkx.set_node_attributes(g, {node: GrammarBase.get_non_terminal_from_counter(counter)},
                                                  "non_terminal")
                     counter -= 1
             elif node in automata.final:
                 if len(g.out_edges(node)) > 0:
-                    networkx.set_node_attributes(g, {node: Grammar.get_non_terminal_from_counter(counter)},
+                    networkx.set_node_attributes(g, {node: GrammarBase.get_non_terminal_from_counter(counter)},
                                                  "non_terminal")
                     counter -= 1
             else:
-                networkx.set_node_attributes(g, {node: Grammar.get_non_terminal_from_counter(counter)}, "non_terminal")
+                networkx.set_node_attributes(g, {node: GrammarBase.get_non_terminal_from_counter(counter)},
+                                             "non_terminal")
                 counter -= 1
 
         non_terminal = set(networkx.get_node_attributes(g, "non_terminal").values())
-        grammar = Grammar(non_terminal=non_terminal, terminal=automata.transition.alphabet)
+        grammar = GrammarBase(non_terminal=non_terminal, terminal=automata.transition.alphabet)
         for node in g.nodes:
             for edge in g.out_edges(node):
                 left, right = edge[0], edge[1]
@@ -148,14 +145,14 @@ class Grammar:
     def _run_rule(self, string, left, right):
         if len(string):
             i = string.find(left)
-            if right == Grammar.NULL:
+            if right == GrammarBase.NULL:
                 return string[:i] + string[i + len(left):]
             else:
                 return string[:i] + right + string[i + len(left):]
         else:
             assert left == self.start
 
-            if right == Grammar.NULL:
+            if right == GrammarBase.NULL:
                 return str()
 
             return right
@@ -244,7 +241,7 @@ class Grammar:
 
 
 class GrammarString:
-    def __init__(self, grammar: Grammar, current=str()):
+    def __init__(self, grammar: GrammarBase, current=str()):
         self.grammar = grammar
         self.current = current
 
@@ -286,7 +283,7 @@ class GrammarString:
         self.current = str()
 
 
-class OpenGrammar(Grammar):
+class Grammar(GrammarBase):
     def __init__(self, start="S"):
         super().__init__(terminal=set(), non_terminal=set(), start=start)
         self.non_terminal_counter = ord('S')
@@ -295,7 +292,7 @@ class OpenGrammar(Grammar):
         pass
 
     def get_non_terminal(self):
-        non_terminal = Grammar.get_non_terminal_from_counter(self.non_terminal_counter)
+        non_terminal = GrammarBase.get_non_terminal_from_counter(self.non_terminal_counter)
         self.non_terminal_counter -= 1
         return non_terminal
 

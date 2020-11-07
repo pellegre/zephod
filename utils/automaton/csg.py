@@ -1,5 +1,5 @@
-from pyauto.grammar import *
-from pyauto.language import *
+from utils.language.grammar import *
+from utils.language.formula import *
 
 from functools import reduce
 
@@ -136,10 +136,9 @@ class GrammarTree:
         self.tree = networkx.DiGraph()
 
         self.initial = initial
-        self.non_terminal_counter\
-            = ord(initial)
+        self.non_terminal_counter = ord(initial)
 
-        self.grammar = OpenGrammar()
+        self.grammar = Grammar()
 
         self.tree.add_node(self.initial, language=self.language)
 
@@ -169,7 +168,7 @@ class GrammarTree:
         else:
             terminal = str(expr.base)
 
-            grammar = OpenGrammar()
+            grammar = Grammar()
             for each in self.grammar.rules:
                 if genesis_block not in each:
                     for right in self.grammar.rules[each]:

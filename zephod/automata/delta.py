@@ -93,6 +93,19 @@ class Delta:
         self.alphabet = set()
         self.delta, self.transitions = {}, {}
 
+        # state management
+        self.state_counter = 0
+        self.state_description = {}
+
+    def get_new_state(self, prefix, description):
+        self.state_counter += 1
+
+        new_state = State(prefix + str(self.state_counter))
+
+        self.state_description[new_state] = description
+
+        return new_state
+
     def _add_transition(self, source, target, symbols):
         raise RuntimeError("_add_transition not implemented")
 

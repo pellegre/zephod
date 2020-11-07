@@ -1,10 +1,12 @@
 import pandas
-import random
 import string
 import subprocess
 
-from pyauto.automata.finite import *
-from pyauto.automata.turing import *
+from zephod.finite import *
+from zephod.turing import *
+
+from shutil import which
+import tempfile
 
 
 class TuringPlotter:
@@ -86,27 +88,32 @@ class AutomataPlotter:
 
     @staticmethod
     def get_tmp_filename():
-        return "/tmp/" + "".join(random.choice(string.ascii_letters) for _ in range(12))
+        return tempfile.gettempdir() + "/" + "".join(random.choice(string.ascii_letters) for _ in range(12))
 
     @staticmethod
     def plot(z, labels=False, layout="dot"):
         dot = z.build_dot(labels, layout=layout)
         filename = AutomataPlotter.get_tmp_filename() + ".pdf"
         dot.draw(path=filename)
-        subprocess.Popen(["xdg-open " + filename], shell=True)
+
+        if which("xdg-open") is not None:
+            subprocess.Popen(["xdg-open " + filename], shell=True)
 
     @staticmethod
     def tikz(z, filename, output, labels=False, layout="dot"):
         dot = z.build_dot(tex=True, labels=labels, layout=layout)
-        dot_file = "/tmp/" + filename + ".dot"
-        tex_file = "/tmp/" + filename + ".tex"
+        dot_file = tempfile.gettempdir() + "/" + filename + ".dot"
+        tex_file = tempfile.gettempdir() + "/" + filename + ".tex"
 
-        with open(dot_file, "w") as f:
-            f.write(dot.to_string())
-            subprocess.Popen(["dot2tex --crop -ftikz " + dot_file + " > " +
-                              tex_file + " && pdflatex --output-directory " + output + " " + tex_file], shell=True)
+        if which("dot2tex") is not None:
+            with open(dot_file, "w") as f:
+                f.write(dot.to_string())
+                subprocess.Popen(["dot2tex --crop -ftikz " + dot_file + " > " +
+                                  tex_file + " && pdflatex --output-directory " + output + " " + tex_file], shell=True)
 
-            f.close()
+                f.close()
+        else:
+            raise RuntimeError("dot2tex not installed")
 
 
 class FiniteAutomataBuilder:
