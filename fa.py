@@ -1,5 +1,13 @@
 from utils.automaton.builder import *
 from utils.automaton.function import *
+from utils.plotter import *
+
+from utils.language.grammar import *
+
+from zephod.finite import *
+from zephod.pushdown import *
+from zephod.turing import *
+
 
 from sympy import sieve
 
@@ -29,7 +37,7 @@ def nfsm_example():
 
 
 def pda_example():
-    grammar = Grammar(non_terminal={"A"}, terminal={"a", "b", "c"})
+    grammar = Grammar()
     grammar.add("S", "A")
     grammar.add("A", "aAa")
     grammar.add("A", "bAb")
@@ -197,7 +205,7 @@ def turing_function_example():
 
 
 def ll1_grammar():
-    grammar = OpenGrammar()
+    grammar = Grammar()
 
     grammar.add("S", "L")
     grammar.add("S", "aB")
@@ -219,7 +227,7 @@ def ll1_grammar():
 
     lang1 = set(sorted(grammar.enumerate(length=15), key=lambda w: len(w)))
 
-    grammar = OpenGrammar()
+    grammar = Grammar()
     grammar.add("S", "$")
 
     grammar.add("S", "Z")
