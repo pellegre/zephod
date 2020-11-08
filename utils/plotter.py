@@ -109,7 +109,8 @@ class AutomataPlotter:
             with open(dot_file, "w") as f:
                 f.write(dot.to_string())
                 subprocess.Popen(["dot2tex --crop -ftikz " + dot_file + " > " +
-                                  tex_file + " && pdflatex --output-directory " + output + " " + tex_file], shell=True)
+                                  tex_file + " && pdflatex --output-directory " + output + " " + tex_file],
+                                 shell=True)
 
                 f.close()
         else:
@@ -124,6 +125,38 @@ class FiniteAutomataBuilder:
     def get_finite_automata_from_csv(filename):
         frame = pandas.read_csv(filename)
         return FiniteAutomataBuilder.get_finite_automata_from_frame(frame)
+
+    @staticmethod
+    def to_csv(automata, filename):
+        columns = ["states"] + [a for a in automata.transition.alphabet] + \
+                  ["type"]
+
+        frame = pandas.DataFrame(columns=columns)
+
+        for state in automata.transition.states:
+            if state in automata.transition.delta:
+                delta = automata.transition.delta[state]
+
+                print(delta)
+                next_states = []
+                for a in automata.transition.alphabet:
+                    if a in delta:
+                        next_states.append(delta[a])
+                    else:
+                        next_states.append("err")
+
+                state_type = FiniteAutomata.NodeType.NONE
+                if state == automata.initial and state in automata.final:
+                    state_type = FiniteAutomata.NodeType.INITIAL + "/" + FiniteAutomata.NodeType.FINAL
+                elif state == automata.initial:
+                    state_type = FiniteAutomata.NodeType.INITIAL
+                elif state in automata.final:
+                    state_type = FiniteAutomata.NodeType.FINAL
+
+                row = [state] + next_states + [state_type]
+                frame = pandas.concat([frame, pandas.DataFrame([row], columns=columns)])
+
+        frame.to_csv(filename, index_label=False)
 
     @staticmethod
     def get_finite_automata_from_frame(frame):

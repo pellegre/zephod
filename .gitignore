@@ -6,3 +6,7 @@ tc
 gen.sh
 *.csv
 papyrus/spa/.ipynb_checkpoints/
+*.pkl
+*.aux
+*.log
+fa.py

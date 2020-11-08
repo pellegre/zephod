@@ -1,6 +1,8 @@
 from zephod.turing import *
 import itertools
 
+from sympy import *
+
 
 class FunctionMachine:
     def __init__(self, expression, domain):
@@ -31,7 +33,7 @@ class FunctionMachine:
         print("[+] - input symbols")
 
         for tape in self.tape_symbols:
-            print("  === symbol", self.tape_symbols[tape], "is at tape", C(tape))
+            print("  === symbol", self.tape_symbols[tape], "is at tape", T(tape))
 
     def get_unary_input(self, values):
         assert len(values) == len(self.symbols)
@@ -91,8 +93,8 @@ class FunctionMachine:
             # ---- get the first one
 
             delta = self._get_blank_delta()
-            delta[C(result_tape)] = A(Tape.BLANK, move=Left())
-            delta[C(tape)] = A(Tape.BLANK, move=Left())
+            delta[T(result_tape)] = A(Tape.BLANK, move=Left())
+            delta[T(tape)] = A(Tape.BLANK, move=Left())
 
             transition.add(initial_state, state, delta)
 
@@ -104,8 +106,8 @@ class FunctionMachine:
             movement_hit_zero = None
 
             delta = self._get_blank_delta()
-            delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A(Tape.BLANK, move=Left())
+            delta[T(result_tape)] = A(Tape.BLANK, move=Stay())
+            delta[T(tape)] = A(Tape.BLANK, move=Left())
 
             transition.add(initial_state, state, delta)
 
@@ -115,25 +117,25 @@ class FunctionMachine:
                     print("------> i % 2 == 0", state)
                     # ---- go to left
                     delta = self._get_blank_delta()
-                    delta[C(result_tape)] = movement
-                    delta[C(tape)] = A("1", move=Left())
+                    delta[T(result_tape)] = movement
+                    delta[T(tape)] = A("1", move=Left())
 
                     transition.add(state, state, delta)
 
                     if movement_hit_zero and not self._is_expression_strictly_positive(result_expr):
-                        delta[C(result_tape)] = movement_hit_zero
+                        delta[T(result_tape)] = movement_hit_zero
                         transition.add(state, state, delta)
 
                     # ---- hit X
                     delta = self._get_blank_delta()
-                    delta[C(result_tape)] = movement_stay
-                    delta[C(tape)] = A("X", move=Right())
+                    delta[T(result_tape)] = movement_stay
+                    delta[T(tape)] = A("X", move=Right())
 
                     next_state = self._get_new_state()
                     transition.add(state, next_state, delta)
 
                     if movement_hit_zero and not self._is_expression_strictly_positive(result_expr):
-                        delta[C(result_tape)] = movement_hit_zero
+                        delta[T(result_tape)] = movement_hit_zero
                         transition.add(state, next_state, delta)
 
                     # swap states
@@ -143,29 +145,29 @@ class FunctionMachine:
                     print("------> i % 2 == 1", state)
                     # ---- go to right
                     delta = self._get_blank_delta()
-                    delta[C(result_tape)] = movement
-                    delta[C(tape)] = A("1", move=Right())
+                    delta[T(result_tape)] = movement
+                    delta[T(tape)] = A("1", move=Right())
 
                     transition.add(state, state, delta)
 
                     if movement_hit_zero and not self._is_expression_strictly_positive(result_expr):
-                        delta[C(result_tape)] = movement_hit_zero
+                        delta[T(result_tape)] = movement_hit_zero
                         transition.add(state, state, delta)
 
                     # ---- hit blank
                     delta = self._get_blank_delta()
-                    delta[C(result_tape)] = movement_stay
+                    delta[T(result_tape)] = movement_stay
 
                     if i == abs(fact) - 1:
-                        delta[C(tape)] = A(Tape.BLANK, move=Stay())
+                        delta[T(tape)] = A(Tape.BLANK, move=Stay())
                     else:
-                        delta[C(tape)] = A(Tape.BLANK, move=Left())
+                        delta[T(tape)] = A(Tape.BLANK, move=Left())
 
                     next_state = self._get_new_state()
                     transition.add(state, next_state, delta)
 
                     if movement_hit_zero and not self._is_expression_strictly_positive(result_expr):
-                        delta[C(result_tape)] = movement_hit_zero
+                        delta[T(result_tape)] = movement_hit_zero
                         transition.add(state, next_state, delta)
 
                     # swap states
@@ -182,35 +184,35 @@ class FunctionMachine:
                     # ---- hit X, and sync tapes
 
                     delta = self._get_blank_delta()
-                    delta[C(result_tape)] = A("1", move=Right())
-                    delta[C(tape)] = A("1", move=Stay())
+                    delta[T(result_tape)] = A("1", move=Right())
+                    delta[T(tape)] = A("1", move=Stay())
 
                     transition.add(state, state, delta)
 
                     if movement_hit_zero and not self._is_expression_strictly_positive(result_expr):
-                        delta[C(result_tape)] = A("Z", move=Right())
+                        delta[T(result_tape)] = A("Z", move=Right())
                         transition.add(state, state, delta)
 
                     # ---- hit X, and sync tapes
 
                     if not self._is_expression_strictly_positive(expr):
                         delta = self._get_blank_delta()
-                        delta[C(result_tape)] = A("1", move=Right())
-                        delta[C(tape)] = A(Tape.BLANK, move=Stay())
+                        delta[T(result_tape)] = A("1", move=Right())
+                        delta[T(tape)] = A(Tape.BLANK, move=Stay())
 
                         transition.add(state, mid_state, delta)
 
                 delta = self._get_blank_delta()
-                delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
-                delta[C(tape)] = A("1", move=Right())
+                delta[T(result_tape)] = A(Tape.BLANK, move=Stay())
+                delta[T(tape)] = A("1", move=Right())
 
                 transition.add(state, mid_state, delta)
 
                 # -------- move back to the end
 
                 delta = self._get_blank_delta()
-                delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
-                delta[C(tape)] = A("1", move=Right())
+                delta[T(result_tape)] = A(Tape.BLANK, move=Stay())
+                delta[T(tape)] = A("1", move=Right())
 
                 transition.add(mid_state, mid_state, delta)
 
@@ -218,8 +220,8 @@ class FunctionMachine:
                 final_state = self._get_new_state()
 
                 delta = self._get_blank_delta()
-                delta[C(result_tape)] = A(Tape.BLANK, move=Stay())
-                delta[C(tape)] = A(Tape.BLANK, move=Stay())
+                delta[T(result_tape)] = A(Tape.BLANK, move=Stay())
+                delta[T(tape)] = A(Tape.BLANK, move=Stay())
 
                 transition.add(mid_state, final_state, delta)
 
@@ -230,8 +232,8 @@ class FunctionMachine:
                     # ---- hit X, and sync tapes
 
                     delta = self._get_blank_delta()
-                    delta[C(result_tape)] = A("1", move=Right())
-                    delta[C(tape)] = A(Tape.BLANK, move=Stay())
+                    delta[T(result_tape)] = A("1", move=Right())
+                    delta[T(tape)] = A(Tape.BLANK, move=Stay())
 
                     transition.add(state, state, delta)
 
@@ -255,14 +257,14 @@ class FunctionMachine:
         result_tape = self._add_to_tape(expression)
         transition.add_tape()
 
-        self.result_tape = C(result_tape)
+        self.result_tape = T(result_tape)
 
         # prepare first step (mark result with Z)
         initial = self.turing_machine.final.pop()
         state = self._get_new_state()
 
         delta = self._get_blank_delta()
-        delta[C(result_tape)] = A(Tape.BLANK, new="Z", move=Right())
+        delta[T(result_tape)] = A(Tape.BLANK, new="Z", move=Right())
 
         transition.add(initial, state, delta)
 
@@ -312,7 +314,7 @@ class FunctionMachine:
         return State(self.initial.prefix + str(self.state_counter))
 
     def _get_blank_delta(self):
-        return {C(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, self.tape_counter + 1)}
+        return {T(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, self.tape_counter + 1)}
 
     def _get_tape_for_symbol(self, symbol):
         return self.symbol_tapes[symbol][0]
@@ -330,16 +332,16 @@ class FunctionMachine:
 
         delta = self._get_blank_delta()
 
-        delta[C(0)] = A("1", move=Stay())
-        delta[C(tape)] = A(Tape.BLANK, new="X", move=Right())
+        delta[T(0)] = A("1", move=Stay())
+        delta[T(tape)] = A(Tape.BLANK, new="X", move=Right())
 
         transition.add(self.initial, state, delta)
 
         if not self._is_expression_strictly_positive(symbol):
             delta = self._get_blank_delta()
 
-            delta[C(0)] = A("0", move=Stay())
-            delta[C(tape)] = A(Tape.BLANK, new="X", move=Right())
+            delta[T(0)] = A("0", move=Stay())
+            delta[T(tape)] = A(Tape.BLANK, new="X", move=Right())
 
             transition.add(self.initial, state, delta)
 
@@ -357,8 +359,8 @@ class FunctionMachine:
         # ---- copy input
 
         delta = self._get_blank_delta()
-        delta[C(0)] = A("1", move=Right())
-        delta[C(tape)] = A(Tape.BLANK, new="1", move=Right())
+        delta[T(0)] = A("1", move=Right())
+        delta[T(tape)] = A(Tape.BLANK, new="1", move=Right())
 
         transition.add(state, state, delta)
 
@@ -371,8 +373,8 @@ class FunctionMachine:
             final_state = self._get_new_state()
 
             delta = self._get_blank_delta()
-            delta[C(0)] = A("0", move=Right())
-            delta[C(next_tape)] = A(Tape.BLANK, new="X", move=Right())
+            delta[T(0)] = A("0", move=Right())
+            delta[T(next_tape)] = A(Tape.BLANK, new="X", move=Right())
 
             transition.add(state, final_state, delta)
 
@@ -393,8 +395,8 @@ class FunctionMachine:
             if not self._is_expression_strictly_positive(symbol):
                 delta = self._get_blank_delta()
 
-                delta[C(0)] = A("0", move=Right())
-                delta[C(tape)] = A(Tape.BLANK, move=Stay())
+                delta[T(0)] = A("0", move=Right())
+                delta[T(tape)] = A(Tape.BLANK, move=Stay())
 
                 transition.add(state, final_state, delta)
 

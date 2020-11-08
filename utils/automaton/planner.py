@@ -60,13 +60,13 @@ class Copy(DeltaAction):
         self.tapes = tapes
 
     def __call__(self, delta):
-        symbol = delta[C(0)].new
+        symbol = delta[T(0)].new
 
         if not symbol:
-            symbol = delta[C(0)].symbol
+            symbol = delta[T(0)].symbol
 
         for tape in self.tapes:
-            delta[C(tape)] = A(Tape.BLANK, new=symbol, move=Right())
+            delta[T(tape)] = A(Tape.BLANK, new=symbol, move=Right())
 
 
 class Addition(DeltaAction):
@@ -76,7 +76,7 @@ class Addition(DeltaAction):
 
     def __call__(self, delta):
         for tape in self.tapes:
-            delta[C(tape)] = A(Tape.BLANK, new=self.symbol, move=Right())
+            delta[T(tape)] = A(Tape.BLANK, new=self.symbol, move=Right())
 
 
 class Subtract(DeltaAction):
@@ -86,17 +86,17 @@ class Subtract(DeltaAction):
 
     def initial(self, delta):
         for tape in self.tapes:
-            delta[C(tape)] = A(Tape.BLANK, move=Left())
+            delta[T(tape)] = A(Tape.BLANK, move=Left())
 
         return True
 
     def __call__(self, delta):
         for tape in self.tapes:
-            delta[C(tape)] = A(self.symbol, new=Tape.BLANK, move=Left())
+            delta[T(tape)] = A(self.symbol, new=Tape.BLANK, move=Left())
 
     def final(self, delta):
         for tape in self.tapes:
-            delta[C(tape)] = A(self.symbol, move=Right())
+            delta[T(tape)] = A(self.symbol, move=Right())
 
         return True
 
@@ -108,11 +108,11 @@ class AllowNegative(DeltaAction):
 
     def __call__(self, delta):
         for tape in self.tapes:
-            delta[C(tape)] = A(self.symbol, move=Stay())
+            delta[T(tape)] = A(self.symbol, move=Stay())
 
     def final(self, delta):
         for tape in self.tapes:
-            delta[C(tape)] = A(self.symbol, move=Right())
+            delta[T(tape)] = A(self.symbol, move=Right())
 
 
 class ParseAction(BlockPlan):
@@ -127,16 +127,16 @@ class ParseAction(BlockPlan):
         deltas = list()
 
         for action in self.actions:
-            empty_delta = {C(0): delta[C(0)]}
+            empty_delta = {T(0): delta[T(0)]}
             run(action, empty_delta)
 
             deltas.append(empty_delta)
 
-        merged = [{C(0): delta[C(0)]}]
+        merged = [{T(0): delta[T(0)]}]
 
         for result in deltas:
             for merged_delta in list(merged):
-                for tape in filter(lambda t: t != C(0), result):
+                for tape in filter(lambda t: t != T(0), result):
                     if tape not in merged_delta:
                         merged_delta[tape] = result[tape]
 
@@ -158,14 +158,14 @@ class ParseAction(BlockPlan):
 
     @staticmethod
     def _is_null_action(delta):
-        return all([ParseAction._is_null_tape(tape, delta) for tape in delta if tape != C(0)])
+        return all([ParseAction._is_null_tape(tape, delta) for tape in delta if tape != T(0)])
 
     def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
         prefix = initial.prefix
         current_state = initial
 
         delta = transition.get_blank_delta()
-        delta[C(0)] = A(word[0], move=Stay())
+        delta[T(0)] = A(word[0], move=Stay())
 
         merged = self._apply_actions(delta, run=lambda a, d: a.initial(d))
 
@@ -176,13 +176,13 @@ class ParseAction(BlockPlan):
         for i in range(0, len(word)):
             delta = transition.get_blank_delta()
 
-            delta[C(0)] = A(word[i], move=Right())
+            delta[T(0)] = A(word[i], move=Right())
 
             if i == len(word) - 1:
                 next_state = initial
 
                 delta = transition.get_blank_delta()
-                delta[C(0)] = A(word[i], move=Right())
+                delta[T(0)] = A(word[i], move=Right())
 
                 merged = self._apply_actions(delta)
 
@@ -196,7 +196,7 @@ class ParseAction(BlockPlan):
                                                                   " first time")
 
                 delta = transition.get_blank_delta()
-                delta[C(0)] = A(word[i], move=Right())
+                delta[T(0)] = A(word[i], move=Right())
 
                 transition.add(current_state, next_state, delta)
 
@@ -204,7 +204,7 @@ class ParseAction(BlockPlan):
 
         for each in final:
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(final[each], move=Stay())
+            delta[T(0)] = A(final[each], move=Stay())
 
             merged = self._apply_actions(delta, run=lambda a, d: a.final(d))
 
@@ -230,14 +230,14 @@ class ParseLoneSymbol(BlockPlan):
                                                                              " of lone word " + word)
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(word[i], move=Right())
+            delta[T(0)] = A(word[i], move=Right())
             transition.add(current_state, next_state, delta)
 
             current_state = next_state
 
         for each in final:
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(final[each], move=Stay())
+            delta[T(0)] = A(final[each], move=Stay())
             transition.add(current_state, each, delta)
 
         return current_state
@@ -260,7 +260,7 @@ class ParseAccumulate(BlockPlan):
 
             if i == len(word) - 1:
                 next_state = initial
-                delta[C(self.tape)] = A(Tape.BLANK, new="Z", move=Right())
+                delta[T(self.tape)] = A(Tape.BLANK, new="Z", move=Right())
 
             else:
                 next_state = transition.get_new_state(prefix=prefix,
@@ -268,14 +268,14 @@ class ParseAccumulate(BlockPlan):
                                                                   word + " while counting " + str(self.tape) +
                                                                   " first time")
 
-            delta[C(0)] = A(word[i], move=Right())
+            delta[T(0)] = A(word[i], move=Right())
             transition.add(current_state, next_state, delta)
 
             current_state = next_state
 
         for each in final:
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(final[each], move=Stay())
+            delta[T(0)] = A(final[each], move=Stay())
             transition.add(current_state, each, delta)
 
         return current_state
@@ -292,31 +292,31 @@ class ParseEqual(BlockPlan):
     def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
         prefix = initial.prefix
         rewind_state = transition.get_new_state(prefix=prefix,
-                                                description="rewind " + C(self.tape) + " after parsing block " + word)
+                                                description="rewind " + T(self.tape) + " after parsing block " + word)
 
         for each in final:
             next_symbol = final[each]
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A("X", move=Right())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A("X", move=Right())
             transition.add(initial, rewind_state, delta)
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A("Z", move=Right())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A("Z", move=Right())
             transition.add(rewind_state, rewind_state, delta)
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A(Tape.BLANK, move=Stay())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A(Tape.BLANK, move=Stay())
             transition.add(rewind_state, each, delta)
 
         current_state = initial
 
         delta = transition.get_blank_delta()
-        delta[C(0)] = A(word[0], move=Stay())
-        delta[C(self.tape)] = A(Tape.BLANK, move=Left())
+        delta[T(0)] = A(word[0], move=Stay())
+        delta[T(self.tape)] = A(Tape.BLANK, move=Left())
         transition.add(current_state, current_state, delta)
 
         for i in range(0, len(word)):
@@ -324,16 +324,16 @@ class ParseEqual(BlockPlan):
 
             if i == len(word) - 1:
                 next_state = initial
-                delta[C(self.tape)] = A("Z", move=Left())
+                delta[T(self.tape)] = A("Z", move=Left())
 
             else:
-                delta[C(self.tape)] = A("Z", move=Stay())
+                delta[T(self.tape)] = A("Z", move=Stay())
                 next_state = transition.get_new_state(prefix=prefix,
                                                       description="parsed letter " + word[i] +
                                                                   " of word " + word +
                                                                   " while verifying counter in C" + str(self.tape))
 
-            delta[C(0)] = A(word[i], move=Right())
+            delta[T(0)] = A(word[i], move=Right())
             transition.add(current_state, next_state, delta)
 
             current_state = next_state
@@ -352,31 +352,31 @@ class ParseStrictLessEqual(BlockPlan):
     def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
         prefix = initial.prefix
         rewind_state = transition.get_new_state(prefix=prefix,
-                                                description="rewind " + C(self.tape) + " after parsing block " + word)
+                                                description="rewind " + T(self.tape) + " after parsing block " + word)
 
         for each in final:
             next_symbol = final[each]
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A("Z", move=Right())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A("Z", move=Right())
             transition.add(initial, rewind_state, delta)
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A("Z", move=Right())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A("Z", move=Right())
             transition.add(rewind_state, rewind_state, delta)
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A(Tape.BLANK, move=Stay())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A(Tape.BLANK, move=Stay())
             transition.add(rewind_state, each, delta)
 
         current_state = initial
 
         delta = transition.get_blank_delta()
-        delta[C(0)] = A(word[0], move=Stay())
-        delta[C(self.tape)] = A(Tape.BLANK, move=Left())
+        delta[T(0)] = A(word[0], move=Stay())
+        delta[T(self.tape)] = A(Tape.BLANK, move=Left())
         transition.add(current_state, current_state, delta)
 
         for i in range(0, len(word)):
@@ -384,16 +384,16 @@ class ParseStrictLessEqual(BlockPlan):
 
             if i == len(word) - 1:
                 next_state = initial
-                delta[C(self.tape)] = A("Z", move=Left())
+                delta[T(self.tape)] = A("Z", move=Left())
 
             else:
-                delta[C(self.tape)] = A("Z", move=Stay())
+                delta[T(self.tape)] = A("Z", move=Stay())
                 next_state = transition.get_new_state(prefix=prefix,
                                                       description="parsed letter " + word[i] +
                                                                   " of word " + word +
                                                                   " while verifying counter in C" + str(self.tape))
 
-            delta[C(0)] = A(word[i], move=Right())
+            delta[T(0)] = A(word[i], move=Right())
             transition.add(current_state, next_state, delta)
 
             current_state = next_state
@@ -412,36 +412,36 @@ class ParseLessEqual(BlockPlan):
     def __call__(self, transition: TuringDelta, initial: State, final: dict, word: str):
         prefix = initial.prefix
         rewind_state = transition.get_new_state(prefix=prefix,
-                                                description="rewind " + C(self.tape) + " after parsing block " + word)
+                                                description="rewind " + T(self.tape) + " after parsing block " + word)
 
         for each in final:
             next_symbol = final[each]
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A("Z", move=Right())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A("Z", move=Right())
             transition.add(initial, rewind_state, delta)
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A("X", move=Right())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A("X", move=Right())
             transition.add(initial, rewind_state, delta)
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A("Z", move=Right())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A("Z", move=Right())
             transition.add(rewind_state, rewind_state, delta)
 
             delta = transition.get_blank_delta()
-            delta[C(0)] = A(next_symbol, move=Stay())
-            delta[C(self.tape)] = A(Tape.BLANK, move=Stay())
+            delta[T(0)] = A(next_symbol, move=Stay())
+            delta[T(self.tape)] = A(Tape.BLANK, move=Stay())
             transition.add(rewind_state, each, delta)
 
         current_state = initial
 
         delta = transition.get_blank_delta()
-        delta[C(0)] = A(word[0], move=Stay())
-        delta[C(self.tape)] = A(Tape.BLANK, move=Left())
+        delta[T(0)] = A(word[0], move=Stay())
+        delta[T(self.tape)] = A(Tape.BLANK, move=Left())
         transition.add(current_state, current_state, delta)
 
         for i in range(0, len(word)):
@@ -449,16 +449,16 @@ class ParseLessEqual(BlockPlan):
 
             if i == len(word) - 1:
                 next_state = initial
-                delta[C(self.tape)] = A("Z", move=Left())
+                delta[T(self.tape)] = A("Z", move=Left())
 
             else:
-                delta[C(self.tape)] = A("Z", move=Stay())
+                delta[T(self.tape)] = A("Z", move=Stay())
                 next_state = transition.get_new_state(prefix=prefix,
                                                       description="parsed letter " + word[i] +
                                                                   " of word " + word +
                                                                   " while verifying counter in C" + str(self.tape))
 
-            delta[C(0)] = A(word[i], move=Right())
+            delta[T(0)] = A(word[i], move=Right())
             transition.add(current_state, next_state, delta)
 
             current_state = next_state
@@ -501,21 +501,21 @@ class RewindLeft(MachinePlan):
 
         tape = self.tape
 
-        state = transition.get_new_state(prefix=prefix, description="rewind C" + str(tape) + " until " + C(self.until))
+        state = transition.get_new_state(prefix=prefix, description="rewind C" + str(tape) + " until " + T(self.until))
 
         delta = transition.get_blank_delta()
-        delta[C(tape)] = A(Tape.BLANK, move=Left())
+        delta[T(tape)] = A(Tape.BLANK, move=Left())
         transition.add(initial, state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape)] = A(self.symbol, move=Left())
+        delta[T(tape)] = A(self.symbol, move=Left())
         transition.add(state, state, delta)
 
         final = transition.get_new_state(prefix=prefix, description="final after rewind C" + str(tape) +
-                                                                    " until " + C(self.until))
+                                                                    " until " + T(self.until))
 
         delta = transition.get_blank_delta()
-        delta[C(tape)] = A(self.stop, move=Stay())
+        delta[T(tape)] = A(self.stop, move=Stay())
         transition.add(state, final, delta)
 
         return final
@@ -541,13 +541,13 @@ class WipeTapes(MachinePlan):
         delta = transition.get_blank_delta()
 
         for tape in self.tapes:
-            delta[C(tape)] = A(Tape.BLANK, move=Left())
+            delta[T(tape)] = A(Tape.BLANK, move=Left())
 
         transition.add(initial, state, delta)
 
         delta = transition.get_blank_delta()
         for tape in self.tapes:
-            delta[C(tape)] = A(self.symbol, new=Tape.BLANK, move=Left())
+            delta[T(tape)] = A(self.symbol, new=Tape.BLANK, move=Left())
 
         transition.add(state, state, delta)
 
@@ -556,7 +556,7 @@ class WipeTapes(MachinePlan):
 
         delta = transition.get_blank_delta()
         for tape in self.tapes:
-            delta[C(tape)] = A(self.stop, move=Right())
+            delta[T(tape)] = A(self.stop, move=Right())
 
         transition.add(state, final, delta)
 
@@ -578,66 +578,66 @@ class AddTapes(OperationPlan):
         prefix = initial.prefix
 
         left_state = transition.get_new_state(prefix=prefix, description="moving left while accumulating C" +
-                                                                         str(tape) + " on " + C(result))
+                                                                         str(tape) + " on " + T(result))
 
         delta = transition.get_blank_delta()
 
         if isinstance(result, list):
             for each in result:
-                delta[C(each)] = A(Tape.BLANK, move=Stay())
+                delta[T(each)] = A(Tape.BLANK, move=Stay())
         else:
-            delta[C(result)] = A(Tape.BLANK, move=Stay())
+            delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(tape)] = A(Tape.BLANK, move=Left())
+        delta[T(tape)] = A(Tape.BLANK, move=Left())
         transition.add(next_state, left_state, delta)
 
         delta = transition.get_blank_delta()
 
         if isinstance(result, list):
             for each in result:
-                delta[C(each)] = A(Tape.BLANK, new=self.symbol, move=Right())
+                delta[T(each)] = A(Tape.BLANK, new=self.symbol, move=Right())
         else:
-            delta[C(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
+            delta[T(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
 
-        delta[C(tape)] = A(self.symbol, move=Left())
+        delta[T(tape)] = A(self.symbol, move=Left())
         transition.add(left_state, left_state, delta)
 
         right_state = transition.get_new_state(prefix=prefix, description="hit X while accumulating C" +
-                                                                          str(tape) + " on " + C(result))
+                                                                          str(tape) + " on " + T(result))
 
         delta = transition.get_blank_delta()
 
         if isinstance(result, list):
             for each in result:
-                delta[C(each)] = A(Tape.BLANK, move=Stay())
+                delta[T(each)] = A(Tape.BLANK, move=Stay())
         else:
-            delta[C(result)] = A(Tape.BLANK, move=Stay())
+            delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(tape)] = A(self.stop, move=Right())
+        delta[T(tape)] = A(self.stop, move=Right())
         transition.add(left_state, right_state, delta)
 
         delta = transition.get_blank_delta()
 
         if isinstance(result, list):
             for each in result:
-                delta[C(each)] = A(Tape.BLANK, move=Stay())
+                delta[T(each)] = A(Tape.BLANK, move=Stay())
         else:
-            delta[C(result)] = A(Tape.BLANK, move=Stay())
+            delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(tape)] = A(self.symbol, move=Right())
+        delta[T(tape)] = A(self.symbol, move=Right())
         transition.add(right_state, right_state, delta)
 
-        next_state = transition.get_new_state(prefix=prefix, description="rewind " + C(tape) + " after accumulating")
+        next_state = transition.get_new_state(prefix=prefix, description="rewind " + T(tape) + " after accumulating")
 
         delta = transition.get_blank_delta()
 
         if isinstance(result, list):
             for each in result:
-                delta[C(each)] = A(Tape.BLANK, move=Stay())
+                delta[T(each)] = A(Tape.BLANK, move=Stay())
         else:
-            delta[C(result)] = A(Tape.BLANK, move=Stay())
+            delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(tape)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape)] = A(Tape.BLANK, move=Stay())
         transition.add(right_state, next_state, delta)
 
         return next_state
@@ -659,48 +659,48 @@ class SubtractTapes(OperationPlan):
         prefix = initial.prefix
 
         left_state = transition.get_new_state(prefix=prefix, description="moving left while subtracting C" +
-                                                                         str(tape) + " on " + C(result))
+                                                                         str(tape) + " on " + T(result))
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Left())
-        delta[C(tape)] = A(Tape.BLANK, move=Left())
+        delta[T(result)] = A(Tape.BLANK, move=Left())
+        delta[T(tape)] = A(Tape.BLANK, move=Left())
         transition.add(next_state, left_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(self.symbol, new=Tape.BLANK, move=Left())
-        delta[C(tape)] = A(self.symbol, move=Left())
+        delta[T(result)] = A(self.symbol, new=Tape.BLANK, move=Left())
+        delta[T(tape)] = A(self.symbol, move=Left())
         transition.add(left_state, left_state, delta)
 
         if self.allow_negative:
             delta = transition.get_blank_delta()
-            delta[C(result)] = A("X", move=Stay())
-            delta[C(tape)] = A(self.symbol, move=Left())
+            delta[T(result)] = A("X", move=Stay())
+            delta[T(tape)] = A(self.symbol, move=Left())
             transition.add(left_state, left_state, delta)
 
         right_state = transition.get_new_state(prefix=prefix, description="hit X while subtracting C" +
-                                                                          str(tape) + " on " + C(result))
+                                                                          str(tape) + " on " + T(result))
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(self.symbol, move=Right())
-        delta[C(tape)] = A("X", move=Right())
+        delta[T(result)] = A(self.symbol, move=Right())
+        delta[T(tape)] = A("X", move=Right())
         transition.add(left_state, right_state, delta)
 
         if self.allow_negative:
             delta = transition.get_blank_delta()
-            delta[C(result)] = A("X", move=Right())
-            delta[C(tape)] = A("X", move=Right())
+            delta[T(result)] = A("X", move=Right())
+            delta[T(tape)] = A("X", move=Right())
             transition.add(left_state, right_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
-        delta[C(tape)] = A(self.symbol, move=Right())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape)] = A(self.symbol, move=Right())
         transition.add(right_state, right_state, delta)
 
-        next_state = transition.get_new_state(prefix=prefix, description="rewind " + C(tape) + " after subtracting")
+        next_state = transition.get_new_state(prefix=prefix, description="rewind " + T(tape) + " after subtracting")
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
-        delta[C(tape)] = A(Tape.BLANK, move=Stay())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape)] = A(Tape.BLANK, move=Stay())
         transition.add(right_state, next_state, delta)
 
         return next_state
@@ -723,7 +723,7 @@ class AddWithFactorTapes(OperationPlan):
 
         state = transition.get_new_state(prefix=prefix, description="initial while adding with factor " +
                                                                     str(self.multiplier) + "  C" +
-                                                                    str(tape) + " on " + C(result))
+                                                                    str(tape) + " on " + T(result))
 
         if self.multiplier < 0:
             movement = A(self.symbol, new=Tape.BLANK, move=Left())
@@ -733,8 +733,8 @@ class AddWithFactorTapes(OperationPlan):
             # ---- get the first one
 
             delta = transition.get_blank_delta()
-            delta[C(result)] = A(Tape.BLANK, move=Left())
-            delta[C(tape)] = A(Tape.BLANK, move=Left())
+            delta[T(result)] = A(Tape.BLANK, move=Left())
+            delta[T(tape)] = A(Tape.BLANK, move=Left())
 
             transition.add(initial, state, delta)
 
@@ -744,8 +744,8 @@ class AddWithFactorTapes(OperationPlan):
             movement_hit_zero = None
 
             delta = transition.get_blank_delta()
-            delta[C(result)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A(Tape.BLANK, move=Left())
+            delta[T(result)] = A(Tape.BLANK, move=Stay())
+            delta[T(tape)] = A(Tape.BLANK, move=Left())
 
             transition.add(initial, state, delta)
 
@@ -753,27 +753,27 @@ class AddWithFactorTapes(OperationPlan):
             if i % 2 == 0:
                 # ---- go to left
                 delta = transition.get_blank_delta()
-                delta[C(result)] = movement
-                delta[C(tape)] = A(self.symbol, move=Left())
+                delta[T(result)] = movement
+                delta[T(tape)] = A(self.symbol, move=Left())
 
                 transition.add(state, state, delta)
 
                 if movement_hit_zero and self.allow_negative:
-                    delta[C(result)] = movement_hit_zero
+                    delta[T(result)] = movement_hit_zero
                     transition.add(state, state, delta)
 
                 # ---- hit X
                 delta = transition.get_blank_delta()
-                delta[C(result)] = movement_stay
-                delta[C(tape)] = A("X", move=Right())
+                delta[T(result)] = movement_stay
+                delta[T(tape)] = A("X", move=Right())
 
                 next_state = transition.get_new_state(prefix=prefix, description="hit X while adding with factor " +
                                                                                  str(self.multiplier) + "  C" +
-                                                                                 str(tape) + " on " + C(result))
+                                                                                 str(tape) + " on " + T(result))
                 transition.add(state, next_state, delta)
 
                 if movement_hit_zero and self.allow_negative:
-                    delta[C(result)] = movement_hit_zero
+                    delta[T(result)] = movement_hit_zero
                     transition.add(state, next_state, delta)
 
                 # swap states
@@ -782,31 +782,31 @@ class AddWithFactorTapes(OperationPlan):
             elif i % 2 == 1:
                 # ---- go to right
                 delta = transition.get_blank_delta()
-                delta[C(result)] = movement
-                delta[C(tape)] = A(self.symbol, move=Right())
+                delta[T(result)] = movement
+                delta[T(tape)] = A(self.symbol, move=Right())
 
                 transition.add(state, state, delta)
 
                 if movement_hit_zero and self.allow_negative:
-                    delta[C(result)] = movement_hit_zero
+                    delta[T(result)] = movement_hit_zero
                     transition.add(state, state, delta)
 
                 # ---- hit blank
                 delta = transition.get_blank_delta()
-                delta[C(result)] = movement_stay
+                delta[T(result)] = movement_stay
 
                 if i == abs(self.multiplier) - 1:
-                    delta[C(tape)] = A(Tape.BLANK, move=Stay())
+                    delta[T(tape)] = A(Tape.BLANK, move=Stay())
                 else:
-                    delta[C(tape)] = A(Tape.BLANK, move=Left())
+                    delta[T(tape)] = A(Tape.BLANK, move=Left())
 
                 next_state = transition.get_new_state(prefix=prefix, description="hit B while adding with factor " +
                                                                                  str(self.multiplier) + "  C" +
-                                                                                 str(tape) + " on " + C(result))
+                                                                                 str(tape) + " on " + T(result))
                 transition.add(state, next_state, delta)
 
                 if movement_hit_zero and self.allow_negative:
-                    delta[C(result)] = movement_hit_zero
+                    delta[T(result)] = movement_hit_zero
                     transition.add(state, next_state, delta)
 
                 # swap states
@@ -815,43 +815,43 @@ class AddWithFactorTapes(OperationPlan):
         if abs(self.multiplier) % 2 == 1:
             mid_state = transition.get_new_state(prefix=prefix, description="rewind (odd) while adding with factor " +
                                                                             str(self.multiplier) + "  C" +
-                                                                            str(tape) + " on " + C(result))
+                                                                            str(tape) + " on " + T(result))
 
             if self.multiplier < 0:
                 # ---- hit X, and sync tapes
 
                 delta = transition.get_blank_delta()
-                delta[C(result)] = A(self.symbol, move=Right())
-                delta[C(tape)] = A(self.symbol, move=Stay())
+                delta[T(result)] = A(self.symbol, move=Right())
+                delta[T(tape)] = A(self.symbol, move=Stay())
 
                 transition.add(state, state, delta)
 
                 if movement_hit_zero and self.allow_negative:
-                    delta[C(result)] = A("X", move=Right())
+                    delta[T(result)] = A("X", move=Right())
                     transition.add(state, state, delta)
 
             delta = transition.get_blank_delta()
-            delta[C(result)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A(self.symbol, move=Right())
+            delta[T(result)] = A(Tape.BLANK, move=Stay())
+            delta[T(tape)] = A(self.symbol, move=Right())
 
             transition.add(state, mid_state, delta)
 
             # -------- move back to the end
 
             delta = transition.get_blank_delta()
-            delta[C(result)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A(self.symbol, move=Right())
+            delta[T(result)] = A(Tape.BLANK, move=Stay())
+            delta[T(tape)] = A(self.symbol, move=Right())
 
             transition.add(mid_state, mid_state, delta)
 
             # -------- find the blank
             final_state = transition.get_new_state(prefix=prefix, description="final (odd) while adding with factor " +
                                                                               str(self.multiplier) + "  C" +
-                                                                              str(tape) + " on " + C(result))
+                                                                              str(tape) + " on " + T(result))
 
             delta = transition.get_blank_delta()
-            delta[C(result)] = A(Tape.BLANK, move=Stay())
-            delta[C(tape)] = A(Tape.BLANK, move=Stay())
+            delta[T(result)] = A(Tape.BLANK, move=Stay())
+            delta[T(tape)] = A(Tape.BLANK, move=Stay())
 
             transition.add(mid_state, final_state, delta)
 
@@ -863,18 +863,18 @@ class AddWithFactorTapes(OperationPlan):
                 final_state = transition.get_new_state(prefix=prefix,
                                                        description="final (even) while adding with factor " +
                                                                    str(self.multiplier) + "  C" +
-                                                                   str(tape) + " on " + C(result))
+                                                                   str(tape) + " on " + T(result))
 
                 # ---- hit X, and sync tapes
 
                 delta = transition.get_blank_delta()
-                delta[C(result)] = A(self.symbol, move=Right())
-                delta[C(tape)] = A(Tape.BLANK, move=Stay())
+                delta[T(result)] = A(self.symbol, move=Right())
+                delta[T(tape)] = A(Tape.BLANK, move=Stay())
 
                 transition.add(state, final_state, delta)
 
                 if self.allow_negative:
-                    delta[C(result)] = A("X", move=Right())
+                    delta[T(result)] = A("X", move=Right())
                     transition.add(state, final_state, delta)
 
             return final_state
@@ -902,62 +902,62 @@ class MultiplyTapes(OperationPlan):
 
         final_state = transition.get_new_state(prefix=prefix, description="final state after multiplying C" +
                                                                           str(self.other_tape) + " and C" +
-                                                                          str(self.one_tape) + " on " + C(result))
+                                                                          str(self.one_tape) + " on " + T(result))
 
         rewind_state = transition.get_new_state(prefix=prefix, description="rewind after multiplying C" +
                                                                            str(self.other_tape) + " and C" +
-                                                                           str(self.one_tape) + " on " + C(result))
+                                                                           str(self.one_tape) + " on " + T(result))
 
         left_state = transition.get_new_state(prefix=prefix, description="moving left while multiplying C" +
                                                                          str(self.other_tape) + " and C" +
-                                                                         str(self.one_tape) + " on " + C(result))
+                                                                         str(self.one_tape) + " on " + T(result))
 
         # -------- start the operation
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(one_tape)] = A(Tape.BLANK, move=Left())
-        delta[C(other_tape)] = A(Tape.BLANK, move=Left())
+        delta[T(one_tape)] = A(Tape.BLANK, move=Left())
+        delta[T(other_tape)] = A(Tape.BLANK, move=Left())
 
         transition.add(initial, left_state, delta)
 
         # -------- this could be a final state
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(one_tape)] = A("X", move=Right())
-        delta[C(other_tape)] = A(self.symbol, move=Right())
+        delta[T(one_tape)] = A("X", move=Right())
+        delta[T(other_tape)] = A(self.symbol, move=Right())
 
         transition.add(left_state, rewind_state, delta)
 
         # -------- move to the left while writing
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(one_tape)] = A(self.symbol, move=Stay())
-        delta[C(other_tape)] = A(self.symbol, move=Stay())
+        delta[T(one_tape)] = A(self.symbol, move=Stay())
+        delta[T(other_tape)] = A(self.symbol, move=Stay())
 
         state = left_state
         for i in range(0, self.multiplier):
             next_state = transition.get_new_state(prefix=prefix, description="multiplying with factor " + str(i + 1) +
                                                                              " of " + str(self.multiplier) +
-                                                                             " on " + C(result))
+                                                                             " on " + T(result))
 
             # ---- go to left
             delta = transition.get_blank_delta()
-            delta[C(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
+            delta[T(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
 
-            delta[C(one_tape)] = A(self.symbol, move=Stay())
+            delta[T(one_tape)] = A(self.symbol, move=Stay())
 
             if i == self.multiplier - 1:
-                delta[C(other_tape)] = A(self.symbol, move=Left())
+                delta[T(other_tape)] = A(self.symbol, move=Left())
 
                 transition.add(state, left_state, delta)
             else:
-                delta[C(other_tape)] = A(self.symbol, move=Stay())
+                delta[T(other_tape)] = A(self.symbol, move=Stay())
 
                 transition.add(state, next_state, delta)
 
@@ -966,54 +966,54 @@ class MultiplyTapes(OperationPlan):
 
         right_state = transition.get_new_state(prefix=prefix, description="moving right while multiplying C" +
                                                                           str(self.other_tape) + " and C" +
-                                                                          str(self.one_tape) + " on " + C(result))
+                                                                          str(self.one_tape) + " on " + T(result))
 
         # -------- hit X
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(one_tape)] = A(self.symbol, move=Left())
-        delta[C(other_tape)] = A("X", move=Right())
+        delta[T(one_tape)] = A(self.symbol, move=Left())
+        delta[T(other_tape)] = A("X", move=Right())
 
         transition.add(left_state, right_state, delta)
 
         # -------- this could be a final state
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(one_tape)] = A("X", move=Right())
-        delta[C(other_tape)] = A(self.symbol, move=Right())
+        delta[T(one_tape)] = A("X", move=Right())
+        delta[T(other_tape)] = A(self.symbol, move=Right())
 
         transition.add(right_state, rewind_state, delta)
 
         # -------- move to the right while writing
 
         delta = transition.get_blank_delta()
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(one_tape)] = A(self.symbol, move=Stay())
-        delta[C(other_tape)] = A(self.symbol, move=Stay())
+        delta[T(one_tape)] = A(self.symbol, move=Stay())
+        delta[T(other_tape)] = A(self.symbol, move=Stay())
 
         state = right_state
         for i in range(0, self.multiplier):
             next_state = transition.get_new_state(prefix=prefix, description="multiplying with factor " + str(i + 1) +
                                                                              " of " + str(self.multiplier) +
-                                                                             " on " + C(result))
+                                                                             " on " + T(result))
 
             # ---- go to left
             delta = transition.get_blank_delta()
-            delta[C(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
+            delta[T(result)] = A(Tape.BLANK, new=self.symbol, move=Right())
 
-            delta[C(one_tape)] = A(self.symbol, move=Stay())
+            delta[T(one_tape)] = A(self.symbol, move=Stay())
 
             if i == self.multiplier - 1:
-                delta[C(other_tape)] = A(self.symbol, move=Right())
+                delta[T(other_tape)] = A(self.symbol, move=Right())
 
                 transition.add(state, right_state, delta)
             else:
-                delta[C(other_tape)] = A(self.symbol, move=Stay())
+                delta[T(other_tape)] = A(self.symbol, move=Stay())
 
                 transition.add(state, next_state, delta)
 
@@ -1024,36 +1024,36 @@ class MultiplyTapes(OperationPlan):
 
         delta = transition.get_blank_delta()
 
-        delta[C(result)] = A(Tape.BLANK, move=Stay())
+        delta[T(result)] = A(Tape.BLANK, move=Stay())
 
-        delta[C(one_tape)] = A(self.symbol, move=Left())
-        delta[C(other_tape)] = A(Tape.BLANK, move=Left())
+        delta[T(one_tape)] = A(self.symbol, move=Left())
+        delta[T(other_tape)] = A(Tape.BLANK, move=Left())
 
         transition.add(right_state, left_state, delta)
 
         # -------- rewind transition
 
         delta = transition.get_blank_delta()
-        delta[C(one_tape)] = A(self.symbol, move=Right())
-        delta[C(other_tape)] = A(self.symbol, move=Right())
+        delta[T(one_tape)] = A(self.symbol, move=Right())
+        delta[T(other_tape)] = A(self.symbol, move=Right())
 
         transition.add(rewind_state, rewind_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(one_tape)] = A(Tape.BLANK, move=Stay())
-        delta[C(other_tape)] = A(self.symbol, move=Right())
+        delta[T(one_tape)] = A(Tape.BLANK, move=Stay())
+        delta[T(other_tape)] = A(self.symbol, move=Right())
 
         transition.add(rewind_state, rewind_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(one_tape)] = A(self.symbol, move=Right())
-        delta[C(other_tape)] = A(Tape.BLANK, move=Stay())
+        delta[T(one_tape)] = A(self.symbol, move=Right())
+        delta[T(other_tape)] = A(Tape.BLANK, move=Stay())
 
         transition.add(rewind_state, rewind_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(one_tape)] = A(Tape.BLANK, move=Stay())
-        delta[C(other_tape)] = A(Tape.BLANK, move=Stay())
+        delta[T(one_tape)] = A(Tape.BLANK, move=Stay())
+        delta[T(other_tape)] = A(Tape.BLANK, move=Stay())
 
         transition.add(rewind_state, final_state, delta)
 
@@ -1075,44 +1075,44 @@ class CompareGreaterTapes(OperationPlan):
 
         left_state = transition.get_new_state(prefix=prefix,
                                               description="moving left while comparing (greater / equal) " +
-                                                          C(tape_a) + " >= " + C(tape_b))
+                                                          T(tape_a) + " >= " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A(Tape.BLANK, move=Left())
-        delta[C(tape_b)] = A(Tape.BLANK, move=Left())
+        delta[T(tape_a)] = A(Tape.BLANK, move=Left())
+        delta[T(tape_b)] = A(Tape.BLANK, move=Left())
         transition.add(initial, left_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Left())
-        delta[C(tape_b)] = A("Z", move=Left())
+        delta[T(tape_a)] = A("Z", move=Left())
+        delta[T(tape_b)] = A("Z", move=Left())
         transition.add(left_state, left_state, delta)
 
         right_state = transition.get_new_state(prefix=prefix,
-                                               description="hit X after comparing (greater / equal) " + C(tape_a) +
-                                                           " >= " + C(tape_b))
+                                               description="hit X after comparing (greater / equal) " + T(tape_a) +
+                                                           " >= " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Right())
-        delta[C(tape_b)] = A("X", move=Right())
+        delta[T(tape_a)] = A("Z", move=Right())
+        delta[T(tape_b)] = A("X", move=Right())
         transition.add(left_state, right_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("X", move=Right())
-        delta[C(tape_b)] = A("X", move=Right())
+        delta[T(tape_a)] = A("X", move=Right())
+        delta[T(tape_b)] = A("X", move=Right())
         transition.add(left_state, right_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Right())
-        delta[C(tape_b)] = A("Z", move=Right())
+        delta[T(tape_a)] = A("Z", move=Right())
+        delta[T(tape_b)] = A("Z", move=Right())
         transition.add(right_state, right_state, delta)
 
         final_state = transition.get_new_state(prefix=prefix,
                                                description="moving right (rewind) after comparing (greater / equal) " +
-                                                           C(tape_a) + " >= " + C(tape_b))
+                                                           T(tape_a) + " >= " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A(Tape.BLANK, move=Stay())
-        delta[C(tape_b)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape_a)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape_b)] = A(Tape.BLANK, move=Stay())
         transition.add(right_state, final_state, delta)
 
         return final_state
@@ -1133,39 +1133,39 @@ class CompareStrictGreaterTapes(OperationPlan):
 
         left_state = transition.get_new_state(prefix=prefix,
                                               description="moving left while comparing (greater) " +
-                                                          C(tape_a) + " > " + C(tape_b))
+                                                          T(tape_a) + " > " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A(Tape.BLANK, move=Left())
-        delta[C(tape_b)] = A(Tape.BLANK, move=Left())
+        delta[T(tape_a)] = A(Tape.BLANK, move=Left())
+        delta[T(tape_b)] = A(Tape.BLANK, move=Left())
         transition.add(initial, left_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Left())
-        delta[C(tape_b)] = A("Z", move=Left())
+        delta[T(tape_a)] = A("Z", move=Left())
+        delta[T(tape_b)] = A("Z", move=Left())
         transition.add(left_state, left_state, delta)
 
         right_state = transition.get_new_state(prefix=prefix,
                                                description="hit X after comparing (greater) " +
-                                                           C(tape_a) + " > " + C(tape_b))
+                                                           T(tape_a) + " > " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Right())
-        delta[C(tape_b)] = A("X", move=Right())
+        delta[T(tape_a)] = A("Z", move=Right())
+        delta[T(tape_b)] = A("X", move=Right())
         transition.add(left_state, right_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Right())
-        delta[C(tape_b)] = A("Z", move=Right())
+        delta[T(tape_a)] = A("Z", move=Right())
+        delta[T(tape_b)] = A("Z", move=Right())
         transition.add(right_state, right_state, delta)
 
         final_state = transition.get_new_state(prefix=prefix,
                                                description="moving right (rewind) after comparing (greater) " +
-                                                           C(tape_a) + " > " + C(tape_b))
+                                                           T(tape_a) + " > " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A(Tape.BLANK, move=Stay())
-        delta[C(tape_b)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape_a)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape_b)] = A(Tape.BLANK, move=Stay())
         transition.add(right_state, final_state, delta)
 
         return final_state
@@ -1186,43 +1186,43 @@ class CompareUnequalTapes(OperationPlan):
 
         left_state = transition.get_new_state(prefix=prefix,
                                               description="moving left while comparing (unequality) " +
-                                                          C(tape_a) + " != " + C(tape_b))
+                                                          T(tape_a) + " != " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A(Tape.BLANK, move=Left())
-        delta[C(tape_b)] = A(Tape.BLANK, move=Left())
+        delta[T(tape_a)] = A(Tape.BLANK, move=Left())
+        delta[T(tape_b)] = A(Tape.BLANK, move=Left())
         transition.add(initial, left_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Left())
-        delta[C(tape_b)] = A("Z", move=Left())
+        delta[T(tape_a)] = A("Z", move=Left())
+        delta[T(tape_b)] = A("Z", move=Left())
         transition.add(left_state, left_state, delta)
 
         right_state = transition.get_new_state(prefix=prefix, description="hit X after comparing (unequality) " +
-                                                                          C(tape_a) + " != " + C(tape_b))
+                                                                          T(tape_a) + " != " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("X", move=Right())
-        delta[C(tape_b)] = A("Z", move=Right())
+        delta[T(tape_a)] = A("X", move=Right())
+        delta[T(tape_b)] = A("Z", move=Right())
         transition.add(left_state, right_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Right())
-        delta[C(tape_b)] = A("X", move=Right())
+        delta[T(tape_a)] = A("Z", move=Right())
+        delta[T(tape_b)] = A("X", move=Right())
         transition.add(left_state, right_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Right())
-        delta[C(tape_b)] = A("Z", move=Right())
+        delta[T(tape_a)] = A("Z", move=Right())
+        delta[T(tape_b)] = A("Z", move=Right())
         transition.add(right_state, right_state, delta)
 
         final_state = transition.get_new_state(prefix=prefix,
                                                description="moving right (rewind) after comparing (unequality) " +
-                                                           C(tape_a) + " != " + C(tape_b))
+                                                           T(tape_a) + " != " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A(Tape.BLANK, move=Stay())
-        delta[C(tape_b)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape_a)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape_b)] = A(Tape.BLANK, move=Stay())
         transition.add(right_state, final_state, delta)
 
         return final_state
@@ -1242,38 +1242,38 @@ class CompareEqualTapes(OperationPlan):
         tape_b = self.target_tape
 
         left_state = transition.get_new_state(prefix=prefix, description="moving left while comparing (equality) " +
-                                                                         C(tape_a) + " == " + C(tape_b))
+                                                                         T(tape_a) + " == " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A(Tape.BLANK, move=Left())
-        delta[C(tape_b)] = A(Tape.BLANK, move=Left())
+        delta[T(tape_a)] = A(Tape.BLANK, move=Left())
+        delta[T(tape_b)] = A(Tape.BLANK, move=Left())
         transition.add(initial, left_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Left())
-        delta[C(tape_b)] = A("Z", move=Left())
+        delta[T(tape_a)] = A("Z", move=Left())
+        delta[T(tape_b)] = A("Z", move=Left())
         transition.add(left_state, left_state, delta)
 
         right_state = transition.get_new_state(prefix=prefix, description="hit X after comparing (equality) " +
-                                                                          C(tape_a) + " == " + C(tape_b))
+                                                                          T(tape_a) + " == " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("X", move=Right())
-        delta[C(tape_b)] = A("X", move=Right())
+        delta[T(tape_a)] = A("X", move=Right())
+        delta[T(tape_b)] = A("X", move=Right())
         transition.add(left_state, right_state, delta)
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A("Z", move=Right())
-        delta[C(tape_b)] = A("Z", move=Right())
+        delta[T(tape_a)] = A("Z", move=Right())
+        delta[T(tape_b)] = A("Z", move=Right())
         transition.add(right_state, right_state, delta)
 
         final_state = transition.get_new_state(prefix=prefix,
                                                description="moving right (rewind) after comparing (equality) " +
-                                                           C(tape_a) + " == " + C(tape_b))
+                                                           T(tape_a) + " == " + T(tape_b))
 
         delta = transition.get_blank_delta()
-        delta[C(tape_a)] = A(Tape.BLANK, move=Stay())
-        delta[C(tape_b)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape_a)] = A(Tape.BLANK, move=Stay())
+        delta[T(tape_b)] = A(Tape.BLANK, move=Stay())
         transition.add(right_state, final_state, delta)
 
         return final_state

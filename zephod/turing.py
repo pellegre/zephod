@@ -55,7 +55,7 @@ class A(Action):
                     self.move._get_action(on_symbol=self.new)]
 
 
-def C(number):
+def T(number):
     return Tape.N(number)
 
 # --------------------------------------------------------------------
@@ -71,7 +71,7 @@ class TuringDelta(Delta):
         self.tapes = tapes
 
     def get_blank_delta(self):
-        return {C(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, self.tapes)}
+        return {T(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, self.tapes)}
 
     def merge_transition(self, transition):
         if transition.source in self.transitions:

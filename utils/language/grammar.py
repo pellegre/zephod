@@ -109,8 +109,6 @@ class GrammarBase:
 
         rules_in_string = self._get_rules_in_string(string)
 
-        # print(string, rules_in_string)
-
         has_terminal = any(map(lambda s: s in self.non_terminal, string))
 
         initial_stack = len(stack)

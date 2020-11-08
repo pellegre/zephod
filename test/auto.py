@@ -2101,31 +2101,31 @@ def test_planner_turing_machine_15():
     tester = PlanTester(plan=ParseLoneSymbol(block=0),
                         language=LanguageFormula(expression=[ccc], conditions=[]))
 
-    assert tester.test({C(0): "ccc"}, word="ccc")
-    assert not tester.test({C(0): "cdc"}, word="ccc")
+    assert tester.test({T(0): "ccc"}, word="ccc")
+    assert not tester.test({T(0): "cdc"}, word="ccc")
 
     print("[+] parse accumulate test")
 
     tester = PlanTester(plan=ParseAccumulate(block=0, tape=1),
                         language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
 
-    assert tester.test({C(0): "aaaaaaa"}, word="a", checker=lambda i: i.tapes[C(1)].data() == "ZZZZZZZB0")
+    assert tester.test({T(0): "aaaaaaa"}, word="a", checker=lambda i: i.tapes[T(1)].data() == "ZZZZZZZB0")
 
-    assert not tester.test({C(0): "aaaabaaa"}, word="a")
+    assert not tester.test({T(0): "aaaabaaa"}, word="a")
 
     print("[+] parse equal test")
 
     tester = PlanTester(plan=ParseEqual(block=0, tape=1),
                         language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
 
-    assert tester.test({C(0): "aaa", C(1): "XZZZ"}, word="a")
-    assert tester.test({C(0): "ababab", C(1): "XZZZ"}, word="ab")
-    assert not tester.test({C(0): "ababab", C(1): "XZZ"}, word="ab")
+    assert tester.test({T(0): "aaa", T(1): "XZZZ"}, word="a")
+    assert tester.test({T(0): "ababab", T(1): "XZZZ"}, word="ab")
+    assert not tester.test({T(0): "ababab", T(1): "XZZ"}, word="ab")
 
     tester = PlanTester(plan=AddTapes(source_tape=0, target_tape=1),
                         language=LanguageFormula(expression=[a**n], conditions=[n >= 0]))
 
-    assert tester.test({C(0): "XZZZ", C(1): "XZZZ"}, checker=lambda i: i.tapes[C(1)].data() == "XZZZZZZB0")
+    assert tester.test({T(0): "XZZZ", T(1): "XZZZ"}, checker=lambda i: i.tapes[T(1)].data() == "XZZZZZZB0")
 
 
 def test_planner_turing_machine_16():

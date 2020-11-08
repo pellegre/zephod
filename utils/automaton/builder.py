@@ -38,9 +38,9 @@ class MachineBuilder:
 
             delta = self._get_blank_delta()
 
-            delta[C(0)] = A(next_symbol, move=Stay())
+            delta[T(0)] = A(next_symbol, move=Stay())
             for tape in self.planner.tapes:
-                delta[C(tape)] = A(Tape.BLANK, new="X", move=Right())
+                delta[T(tape)] = A(Tape.BLANK, new="X", move=Right())
 
             self.transition.add(self.initial_state, state, delta)
 
@@ -142,7 +142,7 @@ class MachineBuilder:
         return space.get_minimal(constraints)
 
     def _get_blank_delta(self):
-        return {C(tape): A(Tape.BLANK, move=Stay()) for tape in [0] + self.planner.tapes}
+        return {T(tape): A(Tape.BLANK, move=Stay()) for tape in [0] + self.planner.tapes}
 
     def _get_new_state(self, description):
         return self.transition.get_new_state(self.prefix, description)
