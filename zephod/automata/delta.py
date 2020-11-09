@@ -1,5 +1,6 @@
 import re
 import random
+import copy
 
 
 # --------------------------------------------------------------------
@@ -21,7 +22,7 @@ class Transition:
         return self.action(self.source, self.target, tape)
 
     def symbol(self):
-        raise RuntimeError("symbol not implemented")
+        return self.__str__()
 
     def __str__(self):
         return str(self.source) + " -> " + str(self.target) + " with " + str(self.action)
@@ -97,6 +98,33 @@ class Delta:
         self.state_counter = 0
         self.state_description = {}
 
+    def _add_transition(self, source, target, symbols):
+        raise RuntimeError("_add_transition not implemented")
+
+    def add_transition(self, transition):
+        if transition.source in self.transitions:
+            if any([transition == t for t in self.transitions[transition.source]]):
+                print("[+] skipping repeated transition", transition)
+                return
+
+        if transition.source not in self.transitions:
+            self.transitions[transition.source] = []
+
+        self.states.add(transition.source)
+        self.states.add(transition.target)
+
+        self.transitions[transition.source].append(transition)
+
+        if transition.source not in self.delta:
+            self.delta[transition.source] = {}
+
+        transition_symbol = transition.symbol()
+
+        if transition_symbol not in self.delta[transition.source]:
+            self.delta[transition.source][transition_symbol] = set()
+
+        self.delta[transition.source][transition_symbol].add(transition.target)
+
     def get_new_state(self, prefix, description):
         self.state_counter += 1
 
@@ -105,9 +133,6 @@ class Delta:
         self.state_description[new_state] = description
 
         return new_state
-
-    def _add_transition(self, source, target, symbols):
-        raise RuntimeError("_add_transition not implemented")
 
     def add(self, ei, ef, *args, **kwargs):
         source, target = State(ei), State(ef)
@@ -128,10 +153,19 @@ class Delta:
                 self.delta[source][s].add(target)
 
     def join(self, other):
-        for ei in other.delta:
-            for symbol in other.delta[ei]:
-                for ef in other.delta[ei][symbol]:
-                    self.add(ei, ef, symbol)
+        for state in other.transitions:
+            for transition in other.transitions[state]:
+                self.add_transition(transition)
+
+    def merge(self, other):
+        try:
+            rebased = other.rebase(self.max_state().number)
+        except ValueError:
+            rebased = other
+
+        for state in rebased.transitions:
+            for transition in rebased.transitions[state]:
+                self.add_transition(transition)
 
     def __call__(self, tape):
         if tape.state() not in self.transitions:
@@ -165,13 +199,17 @@ class Delta:
         return max(self.states, key=lambda e: e.number)
 
     def rebase(self, base):
-        transition = type(self)()
+        rebased_delta = type(self)()
 
-        for ei in self.delta:
-            new_ei = ei.prefix + str(ei.number + base)
-            for symbol in self.delta[ei]:
-                for ef in self.delta[ei][symbol]:
-                    new_ef = ef.prefix + str(ef.number + base)
-                    transition.add(new_ei, new_ef, symbol)
+        for state in self.transitions:
+            for transition in self.transitions[state]:
+                # rebase transition
+                rebased_transition = copy.deepcopy(transition)
+                source, target = rebased_transition.source, rebased_transition.target
 
-        return transition
+                rebased_transition.source = State(source.prefix + str(source.number + base))
+                rebased_transition.target = State(target.prefix + str(target.number + base))
+
+                rebased_delta.add_transition(rebased_transition)
+
+        return rebased_delta

@@ -73,30 +73,6 @@ class TuringDelta(Delta):
     def get_blank_delta(self):
         return {T(tape): A(Tape.BLANK, move=Stay()) for tape in range(0, self.tapes)}
 
-    def merge_transition(self, transition):
-        if transition.source in self.transitions:
-            if any([transition == t for t in self.transitions[transition.source]]):
-                print("[+] skipping repeated transition", transition)
-                return
-
-        if transition.source not in self.transitions:
-            self.transitions[transition.source] = []
-
-        self.states.add(transition.source)
-        self.states.add(transition.target)
-
-        self.transitions[transition.source].append(transition)
-
-        if transition.source not in self.delta:
-            self.delta[transition.source] = {}
-
-        transition_symbol = str(transition)
-
-        if transition_symbol not in self.delta[transition.source]:
-            self.delta[transition.source][transition_symbol] = set()
-
-        self.delta[transition.source][transition_symbol].add(transition.target)
-
     def add_tape(self):
         if not self.tapes:
             raise RuntimeError("delta function not initialized")

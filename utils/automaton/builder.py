@@ -310,9 +310,7 @@ class TuringParser:
                         del delta_stack[m]
 
         for i in range(0, len(deltas)):
-            for each in deltas[i].transitions:
-                for transition in deltas[i].transitions[each]:
-                    combined.merge_transition(transition)
+            combined.join(deltas[i])
 
         return combined
 

@@ -6,7 +6,9 @@ from zephod.finite import *
 from zephod.turing import *
 
 from shutil import which
+
 import tempfile
+import sys
 
 
 class TuringPlotter:
@@ -100,6 +102,10 @@ class AutomataPlotter:
             subprocess.Popen(["xdg-open " + filename], shell=True)
 
     @staticmethod
+    def in_notebook():
+        return 'ipykernel' in sys.modules
+
+    @staticmethod
     def tikz(z, filename, output, labels=False, layout="dot"):
         dot = z.build_dot(tex=True, labels=labels, layout=layout)
         dot_file = tempfile.gettempdir() + "/" + filename + ".dot"
@@ -113,6 +119,9 @@ class AutomataPlotter:
                                  shell=True)
 
                 f.close()
+
+            if AutomataPlotter.in_notebook():
+                pass
         else:
             raise RuntimeError("dot2tex not installed")
 
