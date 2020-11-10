@@ -6,7 +6,6 @@ import sys
 import graphviz
 
 from shutil import which
-from pdf2image import convert_from_path
 
 from zephod.finite import *
 from zephod.turing import *
@@ -123,11 +122,6 @@ class AutomataPlotter:
                                  shell=True)
 
                 f.close()
-
-            if AutomataPlotter.in_notebook():
-                pages = convert_from_path(output + "/" + filename + ".pdf", 180)
-                for page in pages:
-                    page.save(output + "/" + filename + ".png", "png")
 
         else:
             raise RuntimeError("dot2tex not installed")
