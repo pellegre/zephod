@@ -10,3 +10,5 @@ papyrus/spa/.ipynb_checkpoints/
 *.aux
 *.log
 fa.py
+*.dot
+papyrus/spa/img/*.pdf

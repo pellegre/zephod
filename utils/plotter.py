@@ -1,14 +1,14 @@
 import pandas
 import string
 import subprocess
+import tempfile
+import sys
+
+from shutil import which
+from pdf2image import convert_from_path
 
 from zephod.finite import *
 from zephod.turing import *
-
-from shutil import which
-
-import tempfile
-import sys
 
 
 class TuringPlotter:
@@ -108,7 +108,7 @@ class AutomataPlotter:
     @staticmethod
     def tikz(z, filename, output, labels=False, layout="dot"):
         dot = z.build_dot(tex=True, labels=labels, layout=layout)
-        dot_file = tempfile.gettempdir() + "/" + filename + ".dot"
+        dot_file = output + "/" + filename + ".dot"
         tex_file = tempfile.gettempdir() + "/" + filename + ".tex"
 
         if which("dot2tex") is not None:
@@ -121,7 +121,10 @@ class AutomataPlotter:
                 f.close()
 
             if AutomataPlotter.in_notebook():
-                pass
+                pages = convert_from_path(output + "/" + filename + ".pdf", 180)
+                for page in pages:
+                    page.save(output + "/" + filename + ".png", "png")
+
         else:
             raise RuntimeError("dot2tex not installed")
 
