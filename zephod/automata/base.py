@@ -124,7 +124,7 @@ class Automata:
     def _get_null_color():
         return "gray"
 
-    def build_dot(self, labels=True, tex=False, layout="dot"):
+    def build_dot(self, labels=False, tex=False, layout="dot"):
         colors = self.get_colors()
         null_color = self._get_null_color()
 

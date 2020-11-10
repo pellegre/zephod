@@ -3,6 +3,7 @@ import string
 import subprocess
 import tempfile
 import sys
+import graphviz
 
 from shutil import which
 from pdf2image import convert_from_path
@@ -95,11 +96,14 @@ class AutomataPlotter:
     @staticmethod
     def plot(z, labels=False, layout="dot"):
         dot = z.build_dot(labels, layout=layout)
-        filename = AutomataPlotter.get_tmp_filename() + ".pdf"
-        dot.draw(path=filename)
+        if AutomataPlotter.in_notebook():
+            return dot
+        else:
+            filename = AutomataPlotter.get_tmp_filename() + ".pdf"
+            dot.draw(path=filename)
 
-        if which("xdg-open") is not None:
-            subprocess.Popen(["xdg-open " + filename], shell=True)
+            if which("xdg-open") is not None:
+                subprocess.Popen(["xdg-open " + filename], shell=True)
 
     @staticmethod
     def in_notebook():
