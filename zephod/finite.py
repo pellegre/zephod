@@ -1,10 +1,10 @@
 from zephod.pushdown import *
 
-
 import networkx
 import math
 import copy
 import shutil
+import functools
 
 
 # --------------------------------------------------------------------
@@ -81,6 +81,7 @@ class FDATransition(Transition):
             return self.fda.regex
         else:
             return str(hex(id(self)))
+
 
 # --------------------------------------------------------------------
 #
@@ -265,35 +266,12 @@ class FiniteAutomata(Automata):
             if len(added_sets) and added_sets not in self.state_power_set:
                 self._build_power_state_set(self.state_power_set[tuple_state][s])
 
-    def _partition_by_symbol(self, pi, pi_current, symbol, delta):
-        groups = {}
-
-        for state in pi:
-            if state in self.transition.delta and symbol in self.transition.delta[state]:
-                e = self.transition.delta[state][symbol]
-                assert len(e) == 1
-                index = list(map(lambda g: e.issubset(g), pi_current)).index(True)
-            else:
-                index = math.inf
-
-            if index not in groups:
-                groups[index] = {state}
-            else:
-                groups[index].add(state)
-
-            if symbol not in delta:
-                delta[symbol] = {state: index}
-            else:
-                delta[symbol][state] = index
-
-        return list(groups.values())
-
     def minimal(self):
         if self.has_null_transitions():
-            return self.remove_null_transitions().get_deterministic_automata().strip_redundant().minimize_automata()
+            return self.remove_null_transitions().get_deterministic().strip_redundant().minimize()
         elif self.is_non_deterministic():
-            return self.get_deterministic_automata().strip_redundant().minimize_automata()
-        return self.strip_redundant().minimize_automata()
+            return self.get_deterministic().strip_redundant().minimize()
+        return self.strip_redundant().minimize()
 
     def strip_redundant(self):
         states_to_remove = set()
@@ -331,79 +309,61 @@ class FiniteAutomata(Automata):
 
         return fda
 
-    def minimize_automata(self):
-        assert not self.has_null_transitions()
+    def minimize(self):
+        assert not self.has_null_transitions() and not self.is_non_deterministic()
 
-        g = self.g.copy()
-        for state in filter(lambda s: s not in self.final, list(g.nodes)):
-            reach_final = False
-            for final in self.final:
-                if networkx.has_path(g, state, final):
-                    reach_final = True
+        p = {frozenset(self.transition.states.difference(self.final)), frozenset(self.final)}
+        w = p.copy()
 
-            if not reach_final:
-                g.remove_node(state)
+        while len(w):
+            partition = w.pop()
 
-        pi_next, pi_current, pi_global = [{e for e in g.nodes if e not in self.final}, self.final], [], []
+            for a in self.transition.alphabet:
+                x = frozenset({s for s in self.transition.states
+                               if s in self.transition.delta and a in self.transition.delta[s]
+                               and not len(self.transition.delta[s][a].intersection(partition))})
 
-        step_number = 0
-        while not(set([tuple(sorted(p)) for p in pi_global]) == set([tuple(sorted(p)) for p in pi_next])):
+                for y in p.copy():
+                    intersection, difference = frozenset(y.intersection(x)), frozenset(y.difference(x))
+                    if len(intersection) and len(difference):
+                        p.remove(y)
+                        p.update({intersection, difference})
 
-            pi_global = copy.deepcopy(pi_next)
-            self.minimization_steps[step_number] = {"pi": pi_next, "delta": {}}
+                        if y in w:
+                            w.remove(y)
+                            w.update({intersection, difference})
+                        else:
+                            if intersection <= difference:
+                                w.add(intersection)
+                            else:
+                                w.add(difference)
 
-            for symbol in filter(lambda s: s != Transition.NULL, self.transition.alphabet):
-                pi_current, pi_next = pi_next, []
+        states = {each: State(self.initial.prefix + str(i)) for i, each in enumerate(filter(lambda t: len(t), p))}
 
-                for pi in pi_current:
-                    pi_next += self._partition_by_symbol(pi, pi_global, symbol,
-                                                         self.minimization_steps[step_number]["delta"])
+        initial, final, delta = None, set(), FADelta()
+        for each in states:
+            is_final = each.issubset(self.final)
 
-            step_number += 1
+            assert is_final or not len(each.intersection(self.final))
 
-        last_step = max(self.minimization_steps.keys())
-        pi_final = self.minimization_steps[last_step]["pi"]
+            if is_final:
+                final.add(states[each])
 
-        states_map, final, initial = {}, [], None
-        prefix = chr((ord(self.initial.prefix[0]) - ord('a') - 1) % (ord('z') - ord('a') + 1) + ord('a'))
+            if self.initial in each:
+                initial = states[each]
 
-        delta = {}
-        for i, state in enumerate(pi_final):
-            tuple_state = tuple(sorted(state))
-            states_map[tuple_state] = prefix + str(i)
-            assert state.issubset(self.final) or not len(state.intersection(self.final))
+            for a in self.transition.alphabet:
+                target = {s for source in self.transition.delta
+                          if (source in each and a in self.transition.delta[source])
+                          for s in self.transition.delta[source][a]}
 
-            if state.issubset(self.final):
-                final.append(states_map[tuple_state])
+                if len(target):
+                    target = states[next(iter(filter(lambda z: target.issubset(z), p)))]
+                    delta.add(states[each], target, a)
 
-            if self.initial in state:
-                initial = states_map[tuple_state]
+        return FiniteAutomata(transition=delta, initial=initial, final=final)
 
-            symbols = self.minimization_steps[last_step]["delta"]
-            delta[tuple_state] = {s: [] for s in symbols}
-            for symbol in symbols:
-                for e in filter(lambda t: t in state, self.minimization_steps[last_step]["delta"][symbol]):
-                    delta[tuple_state][symbol].append(self.minimization_steps[last_step]["delta"][symbol][e])
-
-        assert initial
-
-        transition = FADelta()
-        for state in delta:
-            for symbol in delta[state]:
-                group = set(delta[state][symbol])
-                assert len(group) == 1
-
-                g = group.pop()
-                if g is not math.inf:
-                    tuple_state = tuple(sorted(pi_final[g]))
-                    transition.add(states_map[state], states_map[tuple_state], symbol)
-
-        fda = FiniteAutomata(transition, initial, final)
-        fda.regex = self.regex
-
-        return fda
-
-    def get_deterministic_automata(self, with_states_map=False):
+    def get_deterministic(self, with_states_map=False):
         assert not self.has_null_transitions()
 
         if not self.is_non_deterministic():
@@ -442,20 +402,28 @@ class FiniteAutomata(Automata):
 
         return fda
 
-    def is_non_deterministic(self):
-        is_ndfa = False
+    def is_non_deterministic(self, node=None, visited=None):
+        # initialize stack
+        if node is None:
+            node = self.initial
+            visited = set()
 
-        for node in self.g.nodes:
-            out_symbol = []
-            for edge in self.g.out_edges(node):
-                out_symbol += self._get_symbol_from_edge(self.g, edge)
+        transition_symbols = [symbol for edge in self.g.out_edges(node)
+                              for symbol in self._get_symbol_from_edge(self.g, edge)]
 
-            if len(out_symbol) != len(set(out_symbol)):
-                is_ndfa = True
-            elif len(out_symbol) > 1 and Transition.NULL in out_symbol:
-                is_ndfa = True
+        # visited node
+        visited.add(node)
 
-        return is_ndfa
+        # check for current and children, if any
+        if any([transition_symbols.count(s) > 1 for s in transition_symbols]) or \
+                (Transition.NULL in transition_symbols and len(transition_symbols) > 1):
+            return True
+        else:
+            for child in filter(lambda c: c not in visited, self.g[node]):
+                if self.is_non_deterministic(node=child, visited=visited):
+                    return True
+
+        return False
 
     def remove_null_transitions(self):
         assert self.has_null_transitions()
@@ -527,7 +495,7 @@ class FiniteAutomata(Automata):
         print('-'.join(['' for _ in range(columns)]))
 
         print()
-        print(("{:" + str(size-right) + "}").format("initial (" + str(self.initial) + ")") +
+        print(("{:" + str(size - right) + "}").format("initial (" + str(self.initial) + ")") +
               ("{:" + str(right) + "}").format("final " + str(self.final) + ""))
         print('='.join(['' for _ in range(columns)]))
 
@@ -571,4 +539,3 @@ class Z(FiniteAutomata):
         super().__init__(transition, initial, final)
 
         self.regex = expression
-

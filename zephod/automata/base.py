@@ -39,12 +39,12 @@ class Automata:
         return g.get_edge_data(edge[0], edge[1])["symbol"]
 
     @staticmethod
-    def _add_edge_to_graph(g, ei, ef, symbol):
-        edge = g.get_edge_data(ei, ef)
+    def _add_edge_to_graph(g, source, target, symbol):
+        edge = g.get_edge_data(source, target)
         if edge is not None:
             edge["symbol"].append(symbol)
         else:
-            g.add_edge(ei, ef, symbol=[symbol])
+            g.add_edge(source, target, symbol=[symbol])
 
     @staticmethod
     def is_done(buffer):
@@ -98,10 +98,10 @@ class Automata:
             else:
                 g.add_node(each, type=Automata.NodeType.NONE)
 
-        for ei in self.transition.delta:
-            for symbol in self.transition.delta[ei]:
-                for ef in self.transition.delta[ei][symbol]:
-                    self._add_edge_to_graph(g, ei, ef, symbol)
+        for source in self.transition.delta:
+            for symbol in self.transition.delta[source]:
+                for target in self.transition.delta[source][symbol]:
+                    self._add_edge_to_graph(g, source, target, symbol)
 
         return g
 
