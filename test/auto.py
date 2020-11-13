@@ -47,7 +47,7 @@ def test_case_1(inp, plotter=False, run_grammar=False):
     assert pda_value == nfsm_value
 
     if run_grammar:
-        grammar_from_fda = GrammarBase.build_from_finite_automata(nfsm)
+        grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -85,7 +85,7 @@ def test_case_2(inp, plotter=False, run_grammar=False):
     assert pda_value == nfsm_value
 
     if run_grammar:
-        grammar_from_fda = GrammarBase.build_from_finite_automata(stripped)
+        grammar_from_fda = Grammar.build_from_finite_automata(stripped)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -141,7 +141,7 @@ def test_case_9(inp, plotter=False, run_grammar=False):
     assert pda_value == expr_value
 
     if run_grammar:
-        grammar_from_fda = GrammarBase.build_from_finite_automata(minimized)
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -168,7 +168,7 @@ def test_case_11(inp, plotter=False, run_grammar=False):
     nfsm = FiniteAutomata(transition, "e0", {"e2", "e4"})
 
     if run_grammar:
-        grammar_from_fda = GrammarBase.build_from_finite_automata(nfsm)
+        grammar_from_fda = Grammar.build_from_finite_automata(nfsm)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert nfsm.read(each)
@@ -218,7 +218,7 @@ def test_case_12(inp, plotter=False, run_grammar=False):
     assert pda_value == expr_value
 
     if run_grammar:
-        grammar_from_fda = GrammarBase.build_from_finite_automata(minimized)
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -244,7 +244,7 @@ def test_case_13(inp, plotter=False, run_grammar=False):
     assert minimized.read(inp) == expr_value
 
     if run_grammar:
-        grammar_from_fda = GrammarBase.build_from_finite_automata(minimized)
+        grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
         for each in grammar_from_fda.enumerate(length=10):
             assert minimized.read(each)
@@ -279,7 +279,7 @@ def test_case_14(plotter=False, run_grammar=False):
     for each in g.enumerate(length=10):
         assert fda.read(each)
 
-    grammar_from_fda = GrammarBase.build_from_finite_automata(fda)
+    grammar_from_fda = Grammar.build_from_finite_automata(fda)
 
     for each in grammar_from_fda.enumerate(length=10):
         assert fda.read(each)
@@ -301,7 +301,7 @@ def test_case_15(plotter=False):
     minimized = dfsm.minimize()
     assert minimized.read("") == expr_value
 
-    grammar_from_fda = GrammarBase.build_from_finite_automata(minimized)
+    grammar_from_fda = Grammar.build_from_finite_automata(minimized)
 
     got_null_string = False
 
@@ -354,7 +354,7 @@ def test_case_16():
 
     fda = FiniteAutomata(transition, initial="z0", final={"z0", "z1", "z2", "z3"})
 
-    grammar_from_fda = GrammarBase.build_from_finite_automata(expr)
+    grammar_from_fda = Grammar.build_from_finite_automata(expr)
 
     for each in grammar_from_fda.enumerate(length=10):
         assert fda.read(each)

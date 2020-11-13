@@ -8,65 +8,25 @@ class GrammarBase:
     def get_non_terminal_from_counter(counter):
         return chr((counter - ord('A') - 1) % (ord('R') - ord('A') + 1) + ord('A'))
 
-    @staticmethod
-    def build_from_finite_automata(automata):
-        if automata.has_null_transitions():
-            raise RuntimeError("can't build from automata with null transitions")
+    def get_non_terminal(self):
+        if self.non_terminal_counter == ord(self.start):
+            self.non_terminal_counter += 1
 
-        g, counter = copy.deepcopy(automata.g), ord('R') + 1
-        for node in g.nodes:
-            if node == automata.initial:
-                if len(g.in_edges(node)) > 0:
-                    networkx.set_node_attributes(g, {node: GrammarBase.get_non_terminal_from_counter(counter)},
-                                                 "non_terminal")
-                    counter -= 1
-            elif node in automata.final:
-                if len(g.out_edges(node)) > 0:
-                    networkx.set_node_attributes(g, {node: GrammarBase.get_non_terminal_from_counter(counter)},
-                                                 "non_terminal")
-                    counter -= 1
-            else:
-                networkx.set_node_attributes(g, {node: GrammarBase.get_non_terminal_from_counter(counter)},
-                                             "non_terminal")
-                counter -= 1
+        non_terminal = self.get_non_terminal_from_counter(self.non_terminal_counter)
+        if non_terminal in self.non_terminal:
+            raise RuntimeError("grammar overflow")
 
-        non_terminal = set(networkx.get_node_attributes(g, "non_terminal").values())
-        grammar = GrammarBase(non_terminal=non_terminal, terminal=automata.transition.alphabet)
-        for node in g.nodes:
-            for edge in g.out_edges(node):
-                left, right = edge[0], edge[1]
-                symbol = g.get_edge_data(left, right)["symbol"]
+        self.non_terminal_counter += 1
 
-                if node == automata.initial:
-                    non_terminal_left = ["S"]
-                    if "non_terminal" in g.nodes[left]:
-                        non_terminal_left.append(g.nodes[left]["non_terminal"])
-
-                    if node in automata.final:
-                        grammar.add("S", Transition.NULL)
-
-                else:
-                    non_terminal_left = [g.nodes[left]["non_terminal"]]
-
-                if right in automata.final:
-                    for s in symbol:
-                        for each in non_terminal_left:
-                            grammar.add(each, s)
-
-                if "non_terminal" in g.nodes[right]:
-                    non_terminal_right = g.nodes[right]["non_terminal"]
-
-                    for s in symbol:
-                        for each in non_terminal_left:
-                            grammar.add(each, s + non_terminal_right)
-
-        return grammar
+        return non_terminal
 
     def __init__(self, terminal, non_terminal, start="S"):
         self.terminal, self.non_terminal = terminal, non_terminal
         self.start, self.rules = start, {}
 
         self.rule_stack = dict()
+
+        self.non_terminal_counter = ord(start) + 1
 
         assert isinstance(self.terminal, set)
         assert isinstance(self.non_terminal, set)
@@ -282,17 +242,40 @@ class GrammarString:
 
 
 class Grammar(GrammarBase):
+
+    @staticmethod
+    def build_from_finite_automata(automata: FiniteAutomata):
+        if automata.has_null_transitions():
+            raise RuntimeError("can't build from automata with null transitions")
+
+        # initialize grammar
+        grammar = Grammar()
+        non_terminals = {automata.initial: grammar.start}
+
+        for state in automata.transition.delta:
+            if state not in non_terminals:
+                non_terminals[state] = grammar.get_non_terminal()
+
+            for a in automata.transition.delta[state]:
+                for target in automata.transition.delta[state][a]:
+                    if target not in non_terminals:
+                        non_terminals[target] = grammar.get_non_terminal()
+
+                    grammar.add(non_terminals[state], a + non_terminals[target])
+
+                    if target in automata.final:
+                        grammar.add(non_terminals[state], a)
+
+        if automata.initial in automata.final:
+            grammar.add(non_terminals[automata.initial], Transition.NULL)
+
+        return grammar
+
     def __init__(self, start="S"):
         super().__init__(terminal=set(), non_terminal=set(), start=start)
-        self.non_terminal_counter = ord('S')
 
     def _sanity_check(self):
         pass
-
-    def get_non_terminal(self):
-        non_terminal = GrammarBase.get_non_terminal_from_counter(self.non_terminal_counter)
-        self.non_terminal_counter -= 1
-        return non_terminal
 
     def add(self, left, right):
         for e in left:
